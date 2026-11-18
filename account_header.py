@@ -16,6 +16,7 @@ from billing import (
     user_identity, verify_checkout,
 )
 from app_analytics import flush_analytics, track_event
+from visitor_counter import render_visitor_counter
 
 logger = logging.getLogger(__name__)
 
@@ -175,6 +176,7 @@ def render_account_header():
             )
         with contact:
             st.link_button("Contact Us", "mailto:contact@zhisystems.ai", width="stretch")
+            render_visitor_counter()
         with refresh:
             if st.button("Refresh", help="Refresh data"):
                 st.session_state.pop("_billing_access", None)

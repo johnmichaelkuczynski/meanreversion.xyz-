@@ -24,7 +24,6 @@ for _module, _name in [
     ("market_chat", "answer_market_question")]:
     globals()[_name] = _lazy(_module, _name)
 from landing_signal import render_landing_signal
-from visitor_counter import render_visitor_counter
 from top_market_snapshot import render_market_snapshot
 from chart_market_feed import fetch_chart_market_feed, update_chart_market_feed
 from auth import get_current_user
@@ -239,7 +238,6 @@ def _background_update_diagnostics(saved):
 
 def _render_summary_below_chart():
     render_market_snapshot(data, quote=quote, saved=saved_market)
-    render_visitor_counter()
 
 
 primary_chart_slot = render_landing_signal(

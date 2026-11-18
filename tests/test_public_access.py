@@ -21,10 +21,12 @@ def test_public_header_never_calls_login_billing_or_checkout():
          patch.object(account_header, "paid_access_for_current_user") as billing, \
          patch.object(account_header, "render_google_login") as login, \
          patch.object(account_header, "_handle_checkout_return") as checkout_return, \
-         patch.object(account_header, "show_purchase_options") as purchase:
+         patch.object(account_header, "show_purchase_options") as purchase, \
+         patch.object(account_header, "render_visitor_counter") as visitor_counter:
         st.columns.return_value = [MagicMock(), MagicMock(), MagicMock()]
         st.button.return_value = False
         st.query_params = {"checkout": "buy"}
         account_header.render_account_header()
         for mock in (billing, login, checkout_return, purchase):
             mock.assert_not_called()
+        visitor_counter.assert_called_once()
