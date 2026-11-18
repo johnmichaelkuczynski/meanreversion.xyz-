@@ -87,7 +87,7 @@ def render_short_term_signal(closes, saved=None):
         } for row in outlook["candidates"]], hide_index=True)
         st.markdown("**Frozen one-month rule**")
         st.write(f"Close through {closes.index[-1]:%Y-%m-%d}")
-        if manifest is None:
+        if not isinstance(manifest, dict) or not manifest.get("rule_text"):
             st.warning("Frozen validation results are unavailable. Buy signals are disabled.")
             return
         if not passed:

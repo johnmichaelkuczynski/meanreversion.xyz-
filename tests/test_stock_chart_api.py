@@ -38,6 +38,21 @@ class StockHistoryTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "No daily price history"):
                 api.load_stock_history("UNKNOWN")
 
+    def test_tiingo_history_uses_existing_key_and_adjusted_prices(self):
+        from unittest.mock import Mock
+        response = Mock(status_code=200)
+        response.json.return_value = [
+            {"date": "2026-01-01T00:00:00Z", "adjClose": 10},
+            {"date": "2026-01-02T00:00:00Z", "adjClose": 12},
+        ]
+        with patch.dict("os.environ", {"TIINGO_API_KEY": "test-only"}, clear=True), \
+                patch("requests.get", return_value=response) as get:
+            result = api.load_stock_history("MSFT")
+        self.assertEqual(result["prices"], [10, 12])
+        self.assertEqual(result["source"], "Tiingo")
+        self.assertEqual(result["dates"], ["2026-01-01", "2026-01-02"])
+        self.assertTrue(get.call_args.args[0].endswith("/MSFT/prices"))
+
 
 class StockHistoryRouteTests(AsyncHTTPTestCase):
     def get_app(self):

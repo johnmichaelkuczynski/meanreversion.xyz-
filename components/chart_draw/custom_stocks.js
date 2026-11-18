@@ -68,7 +68,9 @@
       status.textContent = 'Loading ' + symbol + '…';
       try {
         var response = await (options.fetch || fetch)('/api/chart/stock?symbol=' + encodeURIComponent(symbol));
-        var stock = await response.json();
+        var stock;
+        try { stock = await response.json(); }
+        catch (_) { throw Error('The stock-history service is unavailable. Please reload the page and try again.'); }
         if (!response.ok) throw Error(stock.error || 'Could not load that stock.');
         if (!stock.dates || stock.dates.length < 2 || stock.dates.length !== stock.prices.length ||
             stock.prices.some(function(value) { return !Number.isFinite(value) || value <= 0; }))

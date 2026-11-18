@@ -635,3 +635,17 @@ mtime_ms = 1794929793192
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:de52bbfd-5370-42e6-ac3b-722069d4df4a/7395fc26-4e1b-41db-b156-6e190e314c9e/6af87dcb-a1ba-4336-9875-a6b9125baefe"
 storage_version_token = "1794929838626932"
 content_type = "image/jpeg"
+
+[[outputs]]
+id = "f7BmQf0pS3QVg1gqyA1Hp"
+uri = "file://generated-artifacts/stock-entry-verified.png"
+type = "image"
+title = "Verified MSFT chart"
+description = "The running app after entering MSFT and pressing Add: SOXL in blue, MSFT in purple, with no page exception."
+logical_id = "ce5a14ef-0a0c-478f-9c6f-9ebe648878a3"
+content_hash = "sha256:8c670707eb83362010394d33d4ec50ce9d81fe6107302ad72468513af6030f0e"
+size = 175807
+mtime_ms = 1795030927291
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:b0d92c61-69e9-4427-b00c-62f99328260c/ce5a14ef-0a0c-478f-9c6f-9ebe648878a3/8660cdef-4b02-4d4f-ae27-3f532d90ebe2"
+storage_version_token = "1795030950589956"
+content_type = "image/png"

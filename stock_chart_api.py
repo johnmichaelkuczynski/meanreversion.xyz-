@@ -25,17 +25,42 @@ def normalize_stock_symbol(value):
 
 def load_stock_history(symbol):
     import os
+    from datetime import date
+    import pandas as pd
+    import requests
     from chart_payload import clean_chart_points
-    if not os.environ.get("EODHD_API_KEY", "").strip():
-        raise StockHistoryUnavailable("Stock history is not configured. The owner must set EODHD_API_KEY.")
-    from data_providers import get_custom_benchmark_history
-    code = re.sub(r"\.([AB])$", r"-\1.US", symbol)
-    history = get_custom_benchmark_history(code)
+    if os.environ.get("EODHD_API_KEY", "").strip():
+        from data_providers import get_custom_benchmark_history
+        code = re.sub(r"\.([AB])$", r"-\1.US", symbol)
+        history = get_custom_benchmark_history(code)
+        source = "EODHD"
+    elif os.environ.get("TIINGO_API_KEY", "").strip():
+        code = re.sub(r"\.US$", "", symbol).replace(".", "-")
+        response = requests.get(
+            f"https://api.tiingo.com/tiingo/daily/{code}/prices",
+            params={"startDate": "2000-01-01", "endDate": date.today().isoformat(),
+                    "resampleFreq": "daily"},
+            headers={"Authorization": "Token " + os.environ["TIINGO_API_KEY"].strip()},
+            timeout=30,
+        )
+        if response.status_code == 404:
+            raise ValueError(f"No daily price history was found for {symbol}. Check the symbol and exchange.")
+        response.raise_for_status()
+        rows = response.json()
+        history = pd.DataFrame(rows) if isinstance(rows, list) else pd.DataFrame()
+        if not history.empty and "date" in history and "adjClose" in history:
+            history.index = pd.to_datetime(history["date"], utc=True).dt.tz_localize(None)
+            history = history.rename(columns={"adjClose": "Close"}).sort_index()
+        source = "Tiingo"
+    else:
+        raise StockHistoryUnavailable(
+            "Stock history is not configured. The owner must set TIINGO_API_KEY or EODHD_API_KEY."
+        )
     values = history["Close"] if "Close" in history else []
     dates, prices = clean_chart_points(history.index, values)
     if len(dates) < 2:
         raise ValueError(f"No daily price history was found for {symbol}. Check the symbol and exchange.")
-    return {"symbol": symbol, "dates": dates, "prices": prices, "source": "EODHD",
+    return {"symbol": symbol, "dates": dates, "prices": prices, "source": source,
             "price_type": "Adjusted daily close", "through": dates[-1]}
 
 
