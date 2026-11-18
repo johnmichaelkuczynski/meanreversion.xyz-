@@ -11,8 +11,8 @@ const data = {
   symbol: "TEST",
   dates: ["2020-01-01", "2020-01-02"],
   prices: [100, 110],
-  verdict: {gate_passed: true, band_width: .2, residuals: [-.1, .1], position_text: "10% above trend"},
-  historical_trend: null,
+  verdict: {random_walk: false, band_width: .2, residuals: [-.1, .1], position_text: "10% above trend"},
+  historical_trend: {dates: ["2020-01-01", "2020-01-02"], trend: [105, 106], upper: [150, 160], lower: [70, 75]},
   forecast: {
     dates: ["2030-01-01"], upper: [200], lower: [90], trend: [130],
     probabilities: {upper: [.3], lower: [.2], trend: [.5]}
@@ -35,14 +35,21 @@ assert.equal(layout.yaxis.type, "log");
 assert.equal(layout.dragmode, "pan");
 assert.equal(layout.xaxis2.matches, "x");
 assert.equal(layout.annotations[0].y, Math.log10(110));
+assert.equal(layout.yaxis.tickmode, "array");
+assert.ok(layout.yaxis.ticktext.every(label => /^\$/.test(label)));
+assert.ok(layout.yaxis.tickvals.every(value => value > 0));
 
-data.verdict.gate_passed = false;
+data.verdict.random_walk = true;
 const rejected = vm.runInContext("makeTraces(testData)", context);
 assert.ok(rejected.traces.find(t => t.name === "OTHER (scaled)"));
-assert.ok(!rejected.traces.find(t => t.name === "Upper"));
-assert.ok(!rejected.traces.find(t => t.name === "Distance from trend"));
+assert.ok(rejected.traces.find(t => t.name === "Upper"));
+assert.ok(rejected.traces.find(t => t.name === "Historical trend"));
+assert.ok(rejected.traces.find(t => t.name === "Historical upper band"));
+assert.ok(rejected.traces.find(t => t.name === "Historical lower band"));
+assert.ok(rejected.traces.find(t => t.name === "Distance from trend"));
 context.prepared = rejected;
-assert.equal(vm.runInContext("getLayout(testData, prepared).xaxis.showticklabels", context), true);
+assert.equal(vm.runInContext("getLayout(testData, prepared).yaxis2.visible", context), true);
+assert.doesNotMatch(source, /gate_passed|gatePassed|no trend line drawn/);
 assert.match(source, /xaxis\.p2d\(px\)/);
 assert.doesNotMatch(source, /window\.parent\.document/);
-console.log("Mean Reversion chart: asymmetric bands, log annotation, independent overlays, actual-price hover, gated lines, date labels and live-axis tooltips passed.");
+console.log("Mean Reversion chart: bands and projections always visible, dollar-only log labels, log annotation, overlays and live-axis tooltips passed.");

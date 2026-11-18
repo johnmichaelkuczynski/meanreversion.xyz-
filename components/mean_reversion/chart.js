@@ -208,9 +208,9 @@
       hovertemplate: "%{x|%b %d, %Y}<br>" + escapeHtml(priceName) + ": %{y:$,.2f}<extra></extra>"
     }));
 
-    var gatePassed = !!(data.verdict && data.verdict.gate_passed);
     var historicalModel = data.historical_trend;
-    if (gatePassed && historicalModel) {
+    var modelVisible = !!historicalModel;
+    if (historicalModel) {
       var ht = cleanSeries(historicalModel.dates, historicalModel.trend);
       var hu = cleanSeries(historicalModel.dates, historicalModel.upper);
       var hl = cleanSeries(historicalModel.dates, historicalModel.lower);
@@ -226,7 +226,7 @@
       }
     }
 
-    var forecast = gatePassed ? selectedForecast(data.forecast) : null;
+    var forecast = selectedForecast(data.forecast);
     if (forecast && forecast.dates.length) {
       traces.push(lineTrace("Upper", forecast.dates, forecast.upper, COLORS.upper, {
         width: 1.65, hovertemplate: "%{x|%b %d, %Y}<br>Upper: %{y:$,.2f}<extra></extra>"
@@ -240,7 +240,7 @@
       }));
     }
 
-    if (gatePassed && data.verdict && Array.isArray(data.verdict.residuals)) {
+    if (data.verdict && Array.isArray(data.verdict.residuals)) {
       var residuals = cleanSeries(validPriceDates, data.verdict.residuals);
       if (residuals.dates.length) {
         var distance = residuals.values.map(function (residual) { return (Math.exp(residual) - 1) * 100; });
@@ -274,7 +274,7 @@
       var trace = overlayTrace(overlay, validPriceDates, validPrices);
       if (trace) traces.push(trace);
     });
-    if (gatePassed) {
+    if (validPrices.length) {
       var lastIndex = validPrices.length - 1;
       traces.push({
         type: "scatter", mode: "markers", x: [validPriceDates[lastIndex]], y: [validPrices[lastIndex]],
@@ -283,14 +283,39 @@
         hovertemplate: "%{x|%b %d, %Y}<br>Current close: %{y:$,.2f}<extra></extra>"
       });
     }
-    return { traces: traces, prices: validPrices, priceDates: validPriceDates, forecast: forecast, gatePassed: gatePassed };
+    return { traces: traces, prices: validPrices, priceDates: validPriceDates, forecast: forecast, modelVisible: modelVisible };
+  }
+
+  function dollarTicks(traces) {
+    var low = Infinity;
+    var high = -Infinity;
+    traces.forEach(function (trace) {
+      if (trace.yaxis === "y2") return;
+      (trace.y || []).forEach(function (price) {
+        if (Number.isFinite(price) && price > 0) {
+          low = Math.min(low, price);
+          high = Math.max(high, price);
+        }
+      });
+    });
+    if (!Number.isFinite(low)) return {tickmode: "auto", tickprefix: "$", dtick: 1};
+    var bottom = Math.log10(low);
+    var span = Math.max(Math.log10(high) - bottom, .1);
+    var values = [];
+    var labels = [];
+    for (var i = 0; i <= 5; i += 1) {
+      var value = Math.pow(10, bottom + span * i / 5);
+      values.push(value);
+      labels.push("$" + Number(value.toPrecision(2)).toLocaleString("en-US", {maximumSignificantDigits: 2}));
+    }
+    return {tickmode: "array", tickvals: values, ticktext: labels};
   }
 
   function getLayout(data, prepared) {
     var dates = prepared.priceDates.slice();
     if (prepared.forecast && prepared.forecast.dates.length) dates = dates.concat(prepared.forecast.dates);
     var annotations = [];
-    if (prepared.gatePassed && prepared.prices.length) {
+    if (prepared.prices.length) {
       var position = data.verdict && data.verdict.position_text ? String(data.verdict.position_text) : "";
       annotations.push({
         x: prepared.priceDates[prepared.priceDates.length - 1],
@@ -322,14 +347,14 @@
       annotations: annotations,
       xaxis: {
         type: "date", domain: [0, 1], anchor: "y",
-        showticklabels: !prepared.gatePassed, showgrid: true, gridcolor: COLORS.grid,
+        showticklabels: !prepared.modelVisible, showgrid: true, gridcolor: COLORS.grid,
         linecolor: "#cbd5d8", rangeslider: { visible: false },
         range: dates.length ? [dates[0], dates[dates.length - 1]] : undefined,
         fixedrange: false
       },
       yaxis: {
-        type: "log", domain: prepared.gatePassed ? [.285, 1] : [0, 1], anchor: "x",
-        tickprefix: "$",
+        type: "log", domain: prepared.modelVisible ? [.285, 1] : [0, 1], anchor: "x",
+        ...dollarTicks(prepared.traces),
         title: { text: "Adjusted close · log scale", font: { size: 10 } },
         showgrid: true, gridcolor: COLORS.grid, zeroline: false,
         linecolor: "#cbd5d8", fixedrange: false, automargin: true
@@ -338,10 +363,10 @@
         type: "date", domain: [0, 1], anchor: "y2", matches: "x",
         title: { text: "Date", font: { size: 10 } },
         showgrid: true, gridcolor: COLORS.grid, linecolor: "#cbd5d8",
-        fixedrange: false, automargin: true, visible: prepared.gatePassed
+        fixedrange: false, automargin: true, visible: prepared.modelVisible
       },
       yaxis2: {
-        domain: [0, .19], anchor: "x2", visible: prepared.gatePassed,
+        domain: [0, .19], anchor: "x2", visible: prepared.modelVisible,
         title: { text: "Distance from trend (%)", font: { size: 10 } },
         ticksuffix: "%", showgrid: true, gridcolor: COLORS.grid,
         zeroline: true, zerolinecolor: "#9eaaad", zerolinewidth: 1,
@@ -361,17 +386,10 @@
       title.textContent = (payload.symbol ? String(payload.symbol) + " · " : "") + "Mean Reversion";
       var prepared = makeTraces(payload);
       emptyState.hidden = true;
-      caption.hidden = prepared.gatePassed;
-      if (!prepared.gatePassed) {
-        var statusText = payload.verdict && payload.verdict.status ? String(payload.verdict.status) : "";
-        caption.textContent = statusText.toLowerCase().indexOf("not enough history") !== -1
-          ? statusText
-          : "Random walk — no trend line drawn.";
-        setStatus(statusText || "Random walk — no reliable trend line to revert to.", "warning");
-      } else {
-        caption.textContent = "";
-        setStatus("Model gate passed · historical and projected trend bands shown.", "ready");
-      }
+      caption.hidden = true;
+      var statusText = payload.verdict && payload.verdict.status ? String(payload.verdict.status) : "";
+      setStatus(statusText || "Historical and projected trend bands shown.",
+                payload.verdict && payload.verdict.random_walk ? "warning" : "ready");
       var layout = getLayout(payload, prepared);
       var config = {
         responsive: true, displaylogo: false, scrollZoom: false, doubleClick: false,
@@ -383,9 +401,7 @@
         bindProjectionPointer(prepared.forecast, payload);
         sendFrameHeight();
       }).catch(reportError);
-      var statusText = payload.verdict && payload.verdict.status ? String(payload.verdict.status) : "";
-      if (prepared.gatePassed && statusText) setStatus(statusText, "ready");
-      if (payload.forecast && prepared.gatePassed) {
+      if (payload.forecast) {
         var trend = payload.forecast.trend || [];
         var upper = payload.forecast.upper || [];
         var lower = payload.forecast.lower || [];

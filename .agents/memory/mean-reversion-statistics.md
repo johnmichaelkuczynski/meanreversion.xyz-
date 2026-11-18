@@ -23,13 +23,15 @@ Keep simulation evidence separate from the user's raw H-based score. A Gaussian 
 
 The log-trend / AR(1) Mean Reversion tool is a strictly independent addition,
 not a replacement for Hurst, K, SOXL signals, hand-drawn channels, or the
-existing projection probabilities. A failed reliability gate must not be
-relaxed to produce trend lines or an attractive verdict.
+existing projection probabilities. Trend, bands, slope, and position must
+always remain visible, independently of the descriptive verdict.
 
-**Why:** The user explicitly required a separate model and chart while
-preserving every existing feature, default, provider, and key. Full-history
-log-trend stationarity is a different claim from anti-persistent increments.
+**Why:** The user replaced the original ADF/half-life reliability gate with
+completed residual excursion cycles and a near-unit-root threshold. These
+are requested descriptive heuristics, not proof of stationarity or profits.
 
 **How to apply:** Keep the two interpretations separate, use adjusted closes
-for the new model, and label Monte Carlo touches as conditional model
-estimates rather than empirically calibrated success rates.
+for the new model, never suppress its trend because of a verdict, and label
+Monte Carlo touches as conditional model estimates rather than empirically
+calibrated success rates. If the AR(1) stationary spread is undefined, show
+observed residual spread with an explicit label instead of hiding the bands.

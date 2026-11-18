@@ -17,13 +17,17 @@ _component = components.declare_component(
 
 
 @st.cache_data(ttl=86400, max_entries=64, show_spinner=False)
-def _analyze(prices, dates):
+def _analyze_cycles(prices, dates):
     return analyze(prices, dates)
 
 
 @st.cache_data(ttl=86400, max_entries=32, show_spinner=False)
 def _forecast(model, end_date, today):
-    return simulate_touches(model, end_date, today=today)
+    forecast = simulate_touches(model, end_date, today=today)
+    if forecast is None:
+        return trend_lines(model, pd.bdate_range(
+            pd.Timestamp(model["through"]) + pd.Timedelta(days=1), end_date))
+    return forecast
 
 
 def _select(symbol):
@@ -37,11 +41,7 @@ def _remove(symbol):
 
 
 def compact_verdict(symbol, model):
-    if model["status"] == "Not enough history to assess":
-        return f"{symbol} — Not enough history to assess"
-    if not model["gate_passed"]:
-        return f"{symbol} — Random walk"
-    return f'{symbol} — {model["grade"]} · {model["position_text"]} · {model["trend_pct"]:+.1f}%/yr'
+    return f'{symbol} — {model["grade"] or "Random walk"} · {model["position_sentence"]} · {model["trend_sentence"]}'
 
 
 @st.fragment
@@ -72,7 +72,7 @@ def render_mean_reversion():
     try:
         with st.spinner(f"Analyzing {symbol} adjusted daily history…"):
             history = load_history(symbol)
-            model = _analyze(history["prices"], history["dates"])
+            model = _analyze_cycles(history["prices"], history["dates"])
     except ValueError as exc:
         st.error(str(exc))
         return
@@ -82,30 +82,39 @@ def render_mean_reversion():
     st.subheader(symbol)
     with st.container(border=True):
         st.write(model["status"])
-        if model["gate_passed"]:
-            st.write(model["position_sentence"])
-            st.write(model["trend_sentence"])
+        st.write(model["position_sentence"])
+        st.write(model["trend_sentence"])
+        if model["band_basis"] == "observed residual spread":
+            st.caption("Bands use observed residual spread: this fit has no finite AR(1) long-run spread. Touch probabilities are unavailable.")
     default_end = (pd.Timestamp(date.today()) + pd.DateOffset(years=5)).date()
     end = st.date_input(
         "Extend model lines through", value=default_end,
         min_value=date.today() + pd.Timedelta(days=1),
         max_value=(pd.Timestamp(date.today()) + pd.DateOffset(years=29)).date(),
-        key="mr_end_date", disabled=not model["gate_passed"],
+        key="mr_end_date",
     )
     future = historical = None
-    if model["gate_passed"]:
-        try:
-            with st.spinner("Computing model touch probabilities…"):
-                future = _forecast(model, end.isoformat(), date.today().isoformat())
-                historical = trend_lines(model, history["dates"])
-        except (ValueError, OverflowError):
-            st.error("The requested projection could not be computed. Choose an earlier end date.")
-            return
+    historical = trend_lines(model, history["dates"])
+    future_dates = pd.bdate_range(pd.Timestamp(model["through"]) + pd.Timedelta(days=1), end)
+    future = trend_lines(model, future_dates.union(pd.DatetimeIndex([pd.Timestamp(end)])))
+    try:
+        with st.spinner("Computing model touch probabilities…"):
+            simulated = _forecast(model, end.isoformat(), date.today().isoformat())
+            # Preserve the exact selected end date, including weekends.
+            if simulated.get("probabilities"):
+                if simulated["dates"][-1] != end.isoformat():
+                    simulated["dates"].append(end.isoformat())
+                    for key in ("upper", "trend", "lower"):
+                        simulated[key].append(future[key][-1])
+                        simulated["probabilities"][key].append(simulated["probabilities"][key][-1])
+                future = simulated
+    except (ValueError, OverflowError):
+        st.warning("Touch probabilities could not be computed. Trend lines and bands remain visible.")
     overlays = []
     for index, ticker in enumerate(list(st.session_state.mr_overlays)):
         try:
             comparison = load_history(ticker)
-            comparison_model = _analyze(comparison["prices"], comparison["dates"])
+            comparison_model = _analyze_cycles(comparison["prices"], comparison["dates"])
             row = st.columns([6, 1, 1])
             row[0].write(compact_verdict(ticker, comparison_model))
             row[1].button("Analyze this", key=f"mr_select_{ticker}",
@@ -141,7 +150,8 @@ def render_mean_reversion():
         f'{history["dates"][0]} to {history["dates"][-1]} · {len(history["prices"]):,} observations. '
         "The dot is the latest available close, not a live quote."
     )
-    if model["gate_passed"]:
+    st.caption("Cycle counts and grades are descriptive heuristics, not a statistical test of stationarity or evidence of profitable trading.")
+    if future.get("probabilities"):
         st.caption(
             "20,000 simulated paths. Future steps exclude weekends; exchange holidays are not removed. "
             "Probabilities concern daily-step crossings of moving model lines, not intraday touches, "

@@ -677,3 +677,17 @@ mtime_ms = 1795034940617
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:b0d92c61-69e9-4427-b00c-62f99328260c/f0d86973-8ebd-46b3-ad2a-66e8b23d256d/5200c5ad-8384-4437-87e8-f4caa63ef035"
 storage_version_token = "1795034956724711"
 content_type = "image/png"
+
+[[outputs]]
+id = "ZiTq8UDtUajoK_SiTVbJj"
+uri = "file://generated-artifacts/mean-reversion-revised-validation.html"
+type = "html"
+title = "Revised Mean Reversion — five-ticker validation"
+description = "Exact slopes, residual percentiles, cycles, half-lives, s, daily shock sizes, grades, and verification limits."
+logical_id = "bf0718fe-d374-4315-8ed9-66e12a4d5be0"
+content_hash = "sha256:3fd059faa1411f31e655d3573f06ea36167025bf819e68b8e42205e1d041a2c5"
+size = 5609
+mtime_ms = 1795042450581
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:b0d92c61-69e9-4427-b00c-62f99328260c/bf0718fe-d374-4315-8ed9-66e12a4d5be0/fe1bc5a0-8f9c-4acb-994c-de2a7fba0d51"
+storage_version_token = "1795042460358330"
+content_type = "text/html"

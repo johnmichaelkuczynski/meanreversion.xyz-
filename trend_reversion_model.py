@@ -4,17 +4,13 @@ import math
 
 import numpy as np
 import pandas as pd
-from statsmodels.tsa.stattools import adfuller
-from threadpoolctl import threadpool_limits
 
 
 CONFIG = {
-    "strong": {"half_life": 60, "consistency": .6, "pass_rate": .6},
-    "moderate": {"half_life": 250, "consistency": .4, "pass_rate": .4},
-    "minimum_years": 3,
-    "adf_max_lags": 10,
-    "window_minimum": 504,
-    "window_step": 126,
+    "strong": {"cycles": 8, "half_life": 120},
+    "moderate": {"cycles": 6, "half_life": 300},
+    "minimum_cycles": 4,
+    "random_walk_phi": .9995,
     "simulation_paths": 20_000,
 }
 
@@ -27,27 +23,43 @@ def _fit(prices, dates):
     denominator = float(residuals[:-1] @ residuals[:-1])
     phi = float(residuals[:-1] @ residuals[1:] / denominator) if denominator > 1e-20 else 1.
     innovations = residuals[1:] - phi * residuals[:-1]
-    sigma = float(np.std(innovations, ddof=1))
+    sigma = float(np.std(innovations, ddof=1)) if len(innovations) > 1 else 0.
     half_life = math.log(2) / -math.log(phi) if 0 < phi < 1 else None
-    width = sigma / math.sqrt(1 - phi**2) if 0 < phi < 1 else None
-    if np.ptp(y) < 1e-12:
-        adf_p = 1.
-    else:
-        try:
-            with threadpool_limits(limits=1):
-                adf_p = float(adfuller(
-                    y, regression="ct", autolag="AIC",
-                    maxlag=min(CONFIG["adf_max_lags"], len(y) // 2 - 3),
-                    result_object=False,
-                )[1])
-        except (ValueError, np.linalg.LinAlgError):
-            adf_p = 1.
-    passed = adf_p < .05 and half_life is not None and half_life <= len(y) / 20
+    stationary_width = sigma / math.sqrt(1 - phi**2) if abs(phi) < 1 else None
+    # Nonstationary fits have no finite AR(1) long-run spread. Keep descriptive
+    # bands visible using observed residual dispersion, explicitly labeled.
+    width = stationary_width if stationary_width is not None else float(np.std(residuals))
     return {
         "a": float(a), "g": float(g), "phi": phi, "sigma": sigma,
-        "half_life": half_life, "band_width": width, "adf_p": adf_p,
-        "gate_passed": bool(passed), "residuals": residuals.tolist(),
+        "half_life": half_life, "band_width": width,
+        "band_basis": "AR(1) long-run spread" if stationary_width is not None else "observed residual spread",
+        "residuals": residuals.tolist(),
     }
+
+
+def count_cycles(residuals, width):
+    """Count one completed excursion per >1s departure and return through zero."""
+    armed = 0
+    cycles = 0
+    if width <= 1e-12:
+        return 0
+    for x in residuals:
+        if armed and armed * x <= 0:
+            cycles += 1
+            armed = 0
+        if not armed and abs(x) > width:
+            armed = 1 if x > 0 else -1
+    return cycles
+
+
+def classify(cycles, phi, half_life, config):
+    if cycles < config["minimum_cycles"] or phi >= config["random_walk_phi"]:
+        return None
+    for name in ("strong", "moderate"):
+        rule = config[name]
+        if cycles >= rule["cycles"] and half_life is not None and half_life <= rule["half_life"]:
+            return name.title()
+    return "Weak"
 
 
 def half_life_words(days):
@@ -73,14 +85,11 @@ def analyze(prices, dates, config=None):
         raise ValueError("History must contain unique dates in ascending order.")
     result = {
         "count": len(values), "start": dates[0].date().isoformat(),
-        "through": dates[-1].date().isoformat(), "gate_passed": False,
-        "half_life": None, "consistency": None, "pass_rate": None,
+        "through": dates[-1].date().isoformat(),
+        "half_life": None,
         "position_pct": None, "percentile": None, "trend_pct": None,
         "residuals": [], "band_width": None,
     }
-    if (dates[-1] - dates[0]).days / 365.2425 < config["minimum_years"] or len(values) < 504:
-        result.update(status="Not enough history to assess", grade=None, position_text="")
-        return result
     result.update(_fit(values, dates))
     residuals = np.array(result["residuals"])
     position = float(np.expm1(residuals[-1]) * 100)
@@ -97,34 +106,15 @@ def analyze(prices, dates, config=None):
         trend_sentence=(f"Trend rising {trend:.1f}% per year." if result["g"] > 0 else
                         f"Trend flat or declining ({trend:.1f}% per year)."),
     )
-    # Stability is reported even when the full-history gate fails. It cannot
-    # override that gate or manufacture a grade.
     half_life = result["half_life"]
-    window = max(math.ceil(10 * half_life), config["window_minimum"]) if half_life else config["window_minimum"]
-    windows = []
-    for start in range(0, len(values) - window + 1, config["window_step"]):
-        windows.append(_fit(values[start:start + window], dates[start:start + window]))
-    finite = [w["half_life"] for w in windows if w["half_life"] is not None]
-    consistency = (float(np.clip(1 - np.std(finite) / np.mean(finite), 0, 1))
-                   if finite else None)
-    pass_rate = sum(w["adf_p"] < .1 for w in windows) / len(windows) if windows else None
-    result.update(consistency=consistency, pass_rate=pass_rate,
-                  window_count=len(windows), valid_half_life_windows=len(finite),
-                  window_length=window)
-    if not result["gate_passed"]:
-        result.update(status="Random walk — no reliable trend line to revert to.", grade=None)
-        return result
-    grade = "Weak"
-    for name in ("strong", "moderate"):
-        rule = config[name]
-        if (half_life <= rule["half_life"] and consistency is not None
-                and pass_rate is not None and consistency >= rule["consistency"]
-                and pass_rate >= rule["pass_rate"]):
-            grade = name.title()
-            break
+    cycles = count_cycles(residuals, result["band_width"])
+    grade = classify(cycles, result["phi"], half_life, config)
+    timing = (f"gaps typically close halfway in about {half_life_words(half_life)}"
+              if half_life is not None else "no finite positive-AR(1) half-life")
     result.update(
-        grade=grade,
-        status=f"{grade} — gaps from trend typically close halfway in about {half_life_words(half_life)}.",
+        grade=grade, cycles=cycles, random_walk=grade is None,
+        status=(f"{grade} — {cycles} round trips to trend since {dates[0].year}; {timing}."
+                if grade else "Random walk — price does not reliably return to its trend line"),
     )
     return result
 
@@ -147,7 +137,7 @@ def simulate_touches(model, end_date, *, paths=None, seed=7319, today=None):
     a boundary count as already touched, not paths merely on the same side.
     Business days exclude weekends, but not exchange holidays.
     """
-    if not model["gate_passed"]:
+    if not abs(model["phi"]) < 1:
         return None
     end = pd.Timestamp(end_date).normalize()
     today = pd.Timestamp(today or date.today()).normalize()
