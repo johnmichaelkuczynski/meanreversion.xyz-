@@ -48,7 +48,7 @@ def saved_page(value):
     from market_health import diagnostics_html
     from market_state_store import read_health
     content += diagnostics_html(value, read_health())
-    return ("<!doctype html><html><head><meta charset='utf-8'><title>SOXL Analysis</title>"
+    return ("<!doctype html><html><head><meta charset='utf-8'><title>Mean Reversion</title>"
             "<style>body{background:#f0f4fa;color:#172033;font:16px system-ui;padding:5%;}"
             "section{background:white;border:1px solid #ddd;border-radius:14px;padding:24px;margin:12px 0}"
             ".cards{display:flex;gap:24px}.cards section{flex:1}</style></head><body>" + content +

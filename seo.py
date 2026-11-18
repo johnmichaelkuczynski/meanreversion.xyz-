@@ -5,7 +5,7 @@ import re
 # Verified with Replit deployment metadata on 2026-09-10. Never infer from Host,
 # forwarded headers, or a workspace development domain.
 CANONICAL_URL = "https://soxlpro.xyz/"
-TITLE = "SOXL Pro | SOXL Charts, Probabilities & Backtesting"
+TITLE = "Mean Reversion"
 DESCRIPTION = (
     "Analyze SOXL with interactive historical charts, price-move probabilities, "
     "benchmark comparisons, options risk tools, and strategy backtesting."
