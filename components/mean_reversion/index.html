@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mean Reversion Research Chart</title>
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <main class="mean-reversion" aria-label="Mean reversion research chart">
+    <header class="chart-header">
+      <div>
+        <p class="eyebrow">MODEL RESEARCH</p>
+        <h1 id="chart-title">Mean Reversion</h1>
+        <p class="chart-subtitle">Adjusted close · Log price scale</p>
+      </div>
+      <span class="future-control">Projection end date is adjustable above the chart.</span>
+    </header>
+
+    <div id="status" class="status loading" role="status" aria-live="polite">
+      <span class="status-mark" aria-hidden="true"></span>
+      <span id="status-message">Waiting for chart data…</span>
+    </div>
+    <div id="error-panel" class="error-panel" role="alert" hidden>
+      <div>
+        <strong>Chart could not be rendered</strong>
+        <p id="error-message">Check the supplied data and try again.</p>
+      </div>
+      <button id="retry-chart" type="button">Retry chart</button>
+    </div>
+
+    <div class="chart-controls" aria-label="Chart sizing controls">
+      <label class="range-control" for="height-slider">
+        <span>Chart height</span>
+        <input id="height-slider" type="range" min="350" max="1400" step="1" value="680">
+        <output id="height-value" for="height-slider">680 px</output>
+      </label>
+      <label class="range-control" for="width-slider">
+        <span>Chart width</span>
+        <input id="width-slider" type="range" min="50" max="200" step="5" value="100">
+        <output id="width-value" for="width-slider">100%</output>
+      </label>
+    </div>
+
+    <div id="chart-scroll" class="chart-scroll" tabindex="0" aria-label="Scrollable chart area">
+      <div id="chart-container" class="chart-container">
+        <div id="chart" aria-label="Mean reversion price chart and distance-from-trend plot"></div>
+        <div id="projection-tooltip" class="projection-tooltip" role="tooltip" aria-live="polite"></div>
+        <div id="empty-state" class="empty-state">
+          <span class="empty-rule" aria-hidden="true"></span>
+          <span>Price history will appear when analysis is ready.</span>
+        </div>
+      </div>
+    </div>
+    <button id="resize-grip" class="resize-grip" type="button" role="slider" tabindex="0"
+      aria-label="Resize chart height" aria-valuemin="350" aria-valuemax="1400" aria-valuenow="680">
+      <span aria-hidden="true"></span> Drag to adjust chart height
+    </button>
+    <p id="chart-caption" class="chart-caption" hidden></p>
+    <p class="model-note">Prices use adjusted close. Model estimates are illustrative, not investment advice.</p>
+  </main>
+  <script src="./chart.js"></script>
+</body>
+</html>

@@ -1666,4 +1666,7 @@ with st.expander("About SOXL Pro"):
 
 _background_update_diagnostics(saved_market)
 
+from trend_reversion_ui import render_mean_reversion
+render_mean_reversion()
+
 flush_analytics()

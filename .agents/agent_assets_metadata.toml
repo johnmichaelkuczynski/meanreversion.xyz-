@@ -649,3 +649,31 @@ mtime_ms = 1795030927291
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:b0d92c61-69e9-4427-b00c-62f99328260c/ce5a14ef-0a0c-478f-9c6f-9ebe648878a3/8660cdef-4b02-4d4f-ae27-3f532d90ebe2"
 storage_version_token = "1795030950589956"
 content_type = "image/png"
+
+[[outputs]]
+id = "bxK8tqsumLXg1pEBPul1o"
+uri = "file://generated-artifacts/mean-reversion-validation-report.html"
+type = "html"
+title = "Mean Reversion validation report"
+description = "All five real-ticker metrics, synthetic results, browser evidence, and explicit limits of the existing-feature regression checks."
+logical_id = "2f84af66-309a-4218-9e2b-d0096f90e20b"
+content_hash = "sha256:313dc4b98c509bf2e1dc568b66a0191180adcc65411e2c089162dbea63f6498d"
+size = 7375
+mtime_ms = 1795034908670
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:b0d92c61-69e9-4427-b00c-62f99328260c/2f84af66-309a-4218-9e2b-d0096f90e20b/297ec69d-f68e-4105-8fc9-6707d9577aec"
+storage_version_token = "1795034956120236"
+content_type = "text/html"
+
+[[outputs]]
+id = "NmWtosLCxmLviahpWGmAy"
+uri = "file://generated-artifacts/mean-reversion-synthetic-chart-verified.png"
+type = "image"
+title = "Verified Mean Reversion chart — synthetic example"
+description = "A clearly labeled simulated AR(1) series showing model bands, distance from trend, and cumulative-touch probability tooltip. Not a real-stock forecast."
+logical_id = "f0d86973-8ebd-46b3-ad2a-66e8b23d256d"
+content_hash = "sha256:26d4f3fc4c013a9efb514eab1e1366fc9bb1dbd094573598e3df20bc3c43f725"
+size = 118830
+mtime_ms = 1795034940617
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:b0d92c61-69e9-4427-b00c-62f99328260c/f0d86973-8ebd-46b3-ad2a-66e8b23d256d/5200c5ad-8384-4437-87e8-f4caa63ef035"
+storage_version_token = "1795034956724711"
+content_type = "image/png"
