@@ -34,6 +34,18 @@ class OpenAIProviderKeyTests(unittest.TestCase):
                 openai_client.get_openai_client()
         constructor.assert_not_called()
 
+    def test_replit_ai_integration_key_is_not_used(self):
+        env = {
+            "AI_INTEGRATIONS_OPENAI_API_KEY": "integration-key",
+            "AI_INTEGRATIONS_OPENAI_BASE_URL": "https://integration.example.test/v1",
+        }
+        with patch.dict(os.environ, env, clear=True), \
+                patch.object(openai_client, "OpenAI") as constructor:
+            self.assertFalse(openai_client.openai_available())
+            with self.assertRaisesRegex(RuntimeError, "OPENAI_API_KEY"):
+                openai_client.get_openai_client()
+        constructor.assert_not_called()
+
 
 class AnthropicProviderKeyTests(unittest.TestCase):
     def test_owner_key_uses_standard_endpoint_by_default(self):
@@ -57,6 +69,18 @@ class AnthropicProviderKeyTests(unittest.TestCase):
 
     def test_missing_key_disables_anthropic_without_startup_failure(self):
         with patch.dict(os.environ, {}, clear=True), \
+                patch.object(anthropic_client, "Anthropic") as constructor:
+            self.assertFalse(anthropic_client.anthropic_available())
+            with self.assertRaisesRegex(RuntimeError, "ANTHROPIC_API_KEY"):
+                anthropic_client.get_anthropic_client()
+        constructor.assert_not_called()
+
+    def test_replit_ai_integration_key_is_not_used(self):
+        env = {
+            "AI_INTEGRATIONS_ANTHROPIC_API_KEY": "integration-key",
+            "AI_INTEGRATIONS_ANTHROPIC_BASE_URL": "https://integration.example.test",
+        }
+        with patch.dict(os.environ, env, clear=True), \
                 patch.object(anthropic_client, "Anthropic") as constructor:
             self.assertFalse(anthropic_client.anthropic_available())
             with self.assertRaisesRegex(RuntimeError, "ANTHROPIC_API_KEY"):

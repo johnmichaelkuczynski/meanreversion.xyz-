@@ -17,8 +17,8 @@ feature is unavailable until its variables are supplied.
 
 | Variable | Required | Purpose |
 | --- | --- | --- |
-| `NEON_DATABASE_URL` | Optional for non-Schwab app data | Full PostgreSQL connection string. Takes priority for existing market snapshots and other app data, but NOT Schwab tokens. |
-| `DATABASE_URL` | Required for Schwab authorization | PostgreSQL connection URL for the shared `public.schwab_oauth_tokens` table. Every web replica and worker MUST use the same URL. Set this to your Neon connection string on Coolify. Other app data also uses it when `NEON_DATABASE_URL` is unset. |
+| `NEON_DATABASE_URL` | Recommended | This app's PostgreSQL connection string. It takes priority for all app data, including market state, visitor counts, diagnostics, and Schwab OAuth tokens. Set it to this app's dedicated Neon database to keep data isolated from other apps. |
+| `DATABASE_URL` | Optional fallback | PostgreSQL connection URL used only when `NEON_DATABASE_URL` is not set. All web replicas and workers for this app must resolve to the same database. |
 | `SESSION_SECRET` | Recommended | Signs Google-auth cookies and anonymous visitor identifiers. Use a long random value. |
 
 ## Market data
@@ -75,8 +75,9 @@ only absent, expired or provider-rejected refresh credentials request consent.
 Old token files are no longer read. After the first deployment of database
 storage, authorize once at `/auth/schwab/connect` if the database has no token
 record yet. Later restarts reuse the same database record. To share authorization
-with a development preview, it too must use that same DATABASE_URL and Schwab
-client ID; a different database deliberately remains a separate connection.
+with a development preview, it too must resolve to that same selected database
+URL and Schwab client ID; a different database deliberately remains a separate
+connection.
 
 ## AI and text-quality providers
 

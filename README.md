@@ -55,7 +55,7 @@ Unlike generic charting dashboards that stop at price plots, this platform is bu
   - **Synthetic User** -- OpenAI invents a realistic investor persona and an opening message, then drives the **real** Strategy Builder (Anthropic) end-to-end. A pass means the app produced a complete, parseable strategy for a user it had never seen — proof the full pipeline works, not just its parts.
   - **Quality Control** -- Verifies the legitimacy of an AI answer two ways: OpenAI (gpt-5) grades it against a soundness rubric (consistency, coherent use of numbers, no fabricated claims) and GPTZero scores how machine-generated the text looks. The two signals combine into a single legitimacy verdict.
 
-- **Neon Postgres Persistence** -- Diagnostic runs, synthetic-user sessions, and quality-control results are all persisted to an external Neon database (via `DATABASE_URL`), so the diagnostic history survives restarts and redeploys.
+- **Neon Postgres Persistence** -- Diagnostic runs, synthetic-user sessions, quality-control results, and app state are persisted to the app's selected PostgreSQL database (`NEON_DATABASE_URL`, falling back to `DATABASE_URL`), so the diagnostic history survives restarts and redeploys.
 
 ---
 
@@ -91,7 +91,7 @@ Unlike generic charting dashboards that stop at price plots, this platform is bu
 - **OpenAI (gpt-5)** via `OPENAI_API_KEY` for diagnostics and quality-control tools
 - **GPTZero** authenticity API for AI-generated-text detection in quality control
 - **Optional Google OIDC** via Streamlit native authentication
-- **Neon Postgres** (via `DATABASE_URL`, `psycopg2`) — durable persistence for diagnostic runs, synthetic-user sessions, and QC results
+- **Neon Postgres** (via `NEON_DATABASE_URL`, falling back to `DATABASE_URL`) — durable persistence for diagnostic runs, synthetic-user sessions, QC results, and app state
 - **dateutil** for trading-day math
 - **Black-Scholes pricing** implemented natively with `math.erf` — zero scipy dependency
 
@@ -141,10 +141,12 @@ docker run --rm -p 5000:5000 --env-file .env soxl-analysis
 
 See [ENV_VARS.md](ENV_VARS.md) for all runtime configuration.
 For your own Neon database, set `NEON_DATABASE_URL` to the full PostgreSQL
-connection string in Coolify. It overrides `DATABASE_URL` consistently across
-market workers, visitor counts, diagnostics, and billing. `DATABASE_URL` alone
-remains supported. Secrets entered in the development workspace are not
-automatically transferred to Coolify.
+connection string in Coolify or the workspace's Secrets. It takes precedence
+for all app data, including Schwab OAuth tokens, market workers, visitor counts,
+diagnostics, and billing. Use a dedicated Neon database for this app to keep its
+data separate from other apps. `DATABASE_URL` remains a fallback. Secrets
+entered in the development workspace are not automatically transferred to
+Coolify.
 
 For a new, empty external database, run `python setup_database.py` once from the
 application container (or as Coolify's pre-deployment command) with its database

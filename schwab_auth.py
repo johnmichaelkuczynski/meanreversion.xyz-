@@ -119,7 +119,7 @@ class Callback(Base):
         except OSError:
             self.set_status(503)
             self.page("Schwab authorization could not be saved",
-                      "Check this server's DATABASE_URL and PostgreSQL access, then retry.")
+                      "Check this server's NEON_DATABASE_URL or DATABASE_URL and PostgreSQL access, then retry.")
             return
         # Ensure the homepage's independently refreshed price uses the newly
         # authorized connection rather than a previously cached account quote.

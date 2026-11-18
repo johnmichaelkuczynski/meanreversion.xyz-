@@ -1,6 +1,7 @@
 """Owner-authorized Schwab market data. No account or trading endpoints.
 
-Tokens are shared by the gateway and workers through DATABASE_URL.
+Tokens are shared by the gateway and workers through the app's configured
+NEON_DATABASE_URL, falling back to DATABASE_URL when no Neon URL is set.
 """
 from contextlib import contextmanager
 from datetime import datetime, timezone

@@ -2,10 +2,11 @@
 from contextlib import contextmanager
 from datetime import datetime, timezone
 import hashlib
-import os
 import threading
 
 import psycopg2
+
+from database_config import database_url
 
 
 class TokenStorageError(ValueError):
@@ -54,9 +55,11 @@ def _ensure_schema(connection, identity):
 
 @contextmanager
 def _connection():
-    url = os.environ.get("DATABASE_URL", "").strip()
+    url = database_url()
     if not url:
-        raise TokenStorageError("Schwab token storage requires DATABASE_URL on this server.")
+        raise TokenStorageError(
+            "Schwab token storage requires NEON_DATABASE_URL or DATABASE_URL on this server."
+        )
     connection = None
     try:
         connection = psycopg2.connect(
