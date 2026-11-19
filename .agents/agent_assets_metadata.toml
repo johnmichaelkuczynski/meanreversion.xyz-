@@ -5,8 +5,15 @@ generated = []
 id = "TlDpIqhJzIuhWiniexdfB"
 uri = "file://README.md"
 type = "text"
-title = "SOXL Analysis Platform — README"
+title = "Mean Reversion README"
+description = "README styled after your example, with Overview, Who It’s For, Core Capabilities, model explanations, and collapsible technical setup."
 logical_id = "a113f9ab-abb0-435c-921a-819bdcb7eb81"
+content_hash = "sha256:00885d84a94f17b7a4c682246fd726ba3cbbf6515be794937e6d914d4cf519ee"
+size = 10542
+mtime_ms = 1795049938094
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:b0d92c61-69e9-4427-b00c-62f99328260c/a113f9ab-abb0-435c-921a-819bdcb7eb81/40cc6595-be42-428d-894f-2329f8d8f3d9"
+storage_version_token = "1795049956523879"
+content_type = "text/markdown"
 
 [[outputs]]
 id = "fW7HflGJMMVcSBHADpug_"

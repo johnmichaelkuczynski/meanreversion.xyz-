@@ -1,168 +1,192 @@
-# 📈 SOXL ANALYSIS PLATFORM
+# 📈 MEAN REVERSION
 
-**Quantitative Analysis, Probability Engine, and AI Strategy Builder for SOXL (3× Semiconductor ETF)**
+**Find securities that repeatedly return to a rising long-term trend.**
 
 ---
 
 ## 🧩 Overview
 
-The SOXL Analysis Platform is a single-page quantitative research tool for SOXL (Direxion Daily Semiconductor Bull 3X Shares). It combines interactive log-scale charting, historical probability modeling, benchmark-anchored deviation analysis, vol-surface diagnostics, a full call-sleeve backtest engine, and an AI-powered strategy builder driven by Anthropic Claude. The entire app sits behind Google sign-in, and a three-part diagnostic suite (system check, synthetic user, AI quality control) continuously verifies that every subsystem is live — with every run persisted to a Neon Postgres database.
+Mean Reversion is a stock-research app for examining two questions together: does a security repeatedly return to its long-term trend, and is that trend rising?
 
-Unlike generic charting dashboards that stop at price plots, this platform is built around an operating principle: every analysis is honest, every metric is auditable, and the engine never refuses to return a result — even on a two-data-point window. If you ask for a backtest, you get a backtest. If you ask for a probability, you get the actual historical frequency with its sample size attached. No padding, no hand-waving, no synthetic placeholders.
+Enter a ticker to analyze its full available adjusted-price history. The app draws a long-term trend line, shows the typical range around it, measures the current distance from trend, and counts completed excursions away from and back to trend. It reports the annual trend growth rate alongside a descriptive Strong, Moderate, Weak, or Random walk verdict.
 
----
+Trend information is never hidden because of a verdict. Every valid ticker retains its trend line, upper and lower bands, annual slope, and current position—even when the observed reversion pattern is weak.
+
+The independent Mean Reversion section sits alongside the app's existing SOXL charts, daily signals, probability tools, options research, backtesting, and AI-assisted strategy tools. It does not replace their calculations or chart state.
 
 ## 👥 Who It's For
 
-- **Active traders and SOXL holders** -- need to size positions, time entries, and understand the asymmetric risk profile of a leveraged ETF
-- **Options traders** -- need realistic premium-based strategy backtests with honest Black-Scholes mark-to-market and roll mechanics
-- **Quantitative researchers** -- need to test historical mean-reversion, dislocation, and vol-regime hypotheses against real adjusted price data
-- **Portfolio managers** -- need risk-adjusted metrics (Sharpe, Sortino, Calmar, capital-at-risk) to compare strategies on a level playing field
-- **Anyone running a semiconductor thesis** -- who wants to know the actual historical probability of a move, not a vibes-based estimate
+**Long-term investors** — want to distinguish a rising long-term trend from a temporary price move.
 
----
+**Mean-reversion traders** — want to examine whether substantial departures from trend have repeatedly closed.
+
+**ETF and leveraged-ETF researchers** — want to compare securities such as SOXL, TQQQ, and SPY without assuming they share the same behavior or risk.
+
+**Quantitative researchers** — want explicit formulas, reproducible thresholds, and a clear separation between descriptive patterns and predictive evidence.
+
+**Independent investors** — want to see where today's price sits relative to a security's own history, rather than relying on a chart impression alone.
 
 ## ⚙️ Core Capabilities
 
-- **Interactive Log-Scale Price Chart** -- Full SOXL price history from 2010 to present, rendered in log scale with x-axis extending 5 years into the future. Click-and-drag trend-line drawing via a custom Streamlit component; lines auto-extend forward (dashed projection) and backward (dashed historical).
+**Analyze a Stock Ticker** — Enter a symbol and select Analyze. The independent Mean Reversion tool uses the full adjusted daily history available from the configured provider.
 
-- **Probability Engine** -- Historical probability of any price move (magnitude × time horizon) computed from a configurable rolling window of actual SOXL returns. "Benchmark History" mode predicts SOXL behavior from the recent 30-day move of a benchmark (QQQ, TLT, XLU, VIX) and its historical analogues. Sample size is always shown — no probability without its denominator.
+**Always-Visible Trend and Bands** — View the fitted long-term trend and upper and lower bands on a logarithmic price chart. Extend the model lines to an adjustable projection-end date, regardless of the verdict.
 
-- **Period Analysis / Backtest** -- Select any window on the chart. "SOXL Patterns" mode uses SOXL's own rolling returns. "Benchmark-Based" mode builds the conditional relationship between a benchmark's 30-day move and SOXL's subsequent return during the selected period, then compares predictions to actual post-period outcomes with the per-horizon analogue count.
+**Annual Trend Growth** — See a direct statement such as “Trend rising 39.4% per year.” Flat or declining trends are identified explicitly.
 
-- **Benchmark Overlays** -- QQQ (orange), TQQQ (purple), TLT (teal), XLU (red), VIX (gold dotted) — all rendered on the same log-scale y-axis for direct relative-strength reading.
+**Current Position and Historical Percentile** — See how far the latest adjusted close is above or below trend and how that distance compares with historical residuals.
 
-- **Short Interest** -- FINRA daily short-volume chart for the last 12 months, fetched in parallel HTTP for fast load.
+**Completed Reversion Cycles** — Count substantial excursions that subsequently return through the trend line. Small fluctuations near trend do not count as completed cycles.
 
-- **Vol Surface (limited)** -- BUY/SELL discrepancy view on the available SOXL options chain, highlighting where market-maker skew suggests directional positioning.
+**Transparent Grades** — Strong, Moderate, Weak, and Random walk labels follow explicit cycle-count, persistence, and half-life rules—not an undisclosed scoring system.
 
-- **SOXL-QQQ Dislocation** -- Continuous deviation panel: SOXL_norm − QQQ_norm with rolling baseline, used as the core sizing signal for the allocation engine.
+**Comparison Overlays** — Add other tickers to the Mean Reversion chart, view their scaled price histories with actual-price hover values, inspect compact summaries, remove comparisons, or switch the main analysis to a comparison ticker.
 
-- **Strategy Builder (AI)** -- Conversational interface powered by Anthropic Claude using the deployment's `ANTHROPIC_API_KEY`. User describes their portfolio, available cash, and risk tolerance; Claude generates a personalized SOXL entry strategy with a tranched buy ladder, operating rules, and the statistical basis — rendered as a styled HTML strategy document.
+**Interactive Chart Controls** — Pan and zoom, adjust chart width and height, inspect logarithmic dollar-price labels, and view a separate distance-from-trend panel.
 
-- **Backtest — Allocation Engine (DEFAULT)** -- 20% call-sleeve / 80% cash strategy. Long SOXL calls (default 45-DTE ATM, rolled at 10 DTE) sized continuously by deviation = SOXL_norm − QQQ_norm via a tanh sizing function. Hard floor 2% / hard ceiling 98% inside the sleeve. QQQ bear-regime filter scales sleeve fill (floor still wins). Asymmetric resize: sells down freely (locks in profits / reduces exposure), refills only at roll events — honors both "continuous rebalancing" and "limited downside = premium". Calls priced via Black-Scholes (math.erf, no scipy) with trailing realized vol. Always returns a result for any window (even 2 data points).
+**Conditional Projection Probabilities** — For mathematically supported AR(1) fits, inspect future model prices and cumulative daily-crossing probabilities from 20,000 simulated paths.
 
-- **Risk-Adjusted Metrics Panel** -- Every backtest run reports Total Return, CAGR, annualized Volatility, Max Drawdown, Sharpe, Sortino, Calmar, Capital at Risk, and Return per Unit of At-Risk Capital — for the strategy AND for SOXL B&H and QQQ B&H baselines on the same axis. Capital-efficiency callout compares return-per-at-risk-dollar across all three.
+**Existing SOXL Research Workspace** — Retain the separate SOXL daily signals, hand-drawn chart channels, benchmark overlays, historical probability tools, options analytics, backtesting, and strategy research.
 
-- **Custom Strategy Builder** -- Compose your own indicator/operator combinations against the price history, with the same risk-metric output panel as the default engine.
+**Public Research Access** — Use the research interface without a mandatory sign-in wall.
 
-- **Always-On Data Layer** -- Equity history up to ~20 years via EODHD, options snapshots and history via Polygon, all responses cached 24h. No external rate-limit surprises during a research session.
+## 🔎 How the Mean Reversion Model Works
 
-- **Optional Google Sign-In** -- Google OIDC is available for account and billing flows when configured. Public app features remain accessible without signing in.
+### Long-term trend
 
-- **Three-Part Diagnostic Suite** -- Lives in the 🩺 Diagnostic tab. Every run is written to Neon Postgres for a durable audit trail:
-  - **System Check** -- One-click probe of environment variables, project files, the DSL registries, live yfinance + FINRA data, the Black-Scholes pricer / call-sleeve simulator / risk metrics / probability engine, round-trip pings to **both** Anthropic and OpenAI, GPTZero reachability, and Neon connectivity. Each check carries timing and expandable evidence.
-  - **Synthetic User** -- OpenAI invents a realistic investor persona and an opening message, then drives the **real** Strategy Builder (Anthropic) end-to-end. A pass means the app produced a complete, parseable strategy for a user it had never seen — proof the full pipeline works, not just its parts.
-  - **Quality Control** -- Verifies the legitimacy of an AI answer two ways: OpenAI (gpt-5) grades it against a soundness rubric (consistency, coherent use of numbers, no fabricated claims) and GPTZero scores how machine-generated the text looks. The two signals combine into a single legitimacy verdict.
+The model fits a straight line to the logarithm of adjusted daily prices over the full available history:
 
-- **Neon Postgres Persistence** -- Diagnostic runs, synthetic-user sessions, quality-control results, and app state are persisted to the app's selected PostgreSQL database (`NEON_DATABASE_URL`, falling back to `DATABASE_URL`), so the diagnostic history survives restarts and redeploys.
+```text
+y_t = ln(adjusted close_t)
+y_t = a + g × t + x_t
+```
+
+Here, `t` is elapsed calendar time in years, `g` is the fitted annual log-growth rate, and `x_t` is the residual—the distance from the fitted log-price trend.
+
+```text
+Trend price          = exp(a + g × t)
+Annual trend growth  = (exp(g) − 1) × 100%
+Current position     = (exp(x_now) − 1) × 100%
+```
+
+### Band width and half-life
+
+A no-intercept AR(1) model describes the residuals:
+
+```text
+x_t = φ × x_(t−1) + ε_t
+σ_ε = standard deviation of the daily innovations
+s   = σ_ε / sqrt(1 − φ²)
+
+Upper band = exp(a + g × t + 2s)
+Lower band = exp(a + g × t − 2s)
+
+Half-life = ln(2) / (−ln φ), for 0 < φ < 1
+```
+
+The cycle threshold and price bands use **s**, the modeled long-run residual spread—not **σ_ε**, the daily shock size. Half-life is measured in trading days.
+
+If `|φ| ≥ 1`, the stationary AR(1) spread is undefined. The interface explicitly labels an observed-residual-spread fallback so descriptive bands remain visible; stationary-model touch probabilities are unavailable for that fit.
+
+### Completed cycles and grades
+
+A completed cycle begins when `|x_t|` strictly exceeds `s` and finishes when the residual later reaches or crosses zero. An unfinished excursion does not count.
+
+| Verdict | Rule |
+| --- | --- |
+| Random walk | Fewer than 4 completed cycles **or** φ ≥ 0.9995 |
+| Strong | Not Random walk; at least 8 cycles and half-life ≤ 120 trading days |
+| Moderate | Not Random walk or Strong; at least 6 cycles and half-life ≤ 300 trading days |
+| Weak | Every remaining case |
+
+The thresholds live in the model's configuration object. Trend slope is reported separately: a Strong reversion grade does not itself mean the trend is rising.
+
+## ▶️ Getting Started
+
+1. Open the app and scroll to **Mean Reversion**.
+2. Enter a stock or ETF ticker, such as SOXL, TQQQ, SPY, KO, or MSFT.
+3. Select **Analyze**.
+4. Read the trend direction and current position alongside the cycle count and verdict.
+5. Adjust the projection-end date or add comparison tickers as needed.
+
+For the goal of finding repeated returns to a rising trend, consider both the reversion evidence and the annual growth rate. Neither should be read in isolation.
+
+## ⚠️ What the Results Do—and Do Not—Mean
+
+**Descriptive, not a proof of predictability** — The cycle rule summarizes observed history. It is not a statistical test establishing stationarity, and a simulated random walk can also produce in-sample cycles after detrending.
+
+**Full-history fitting is retrospective** — The fitted line uses the entire supplied history. Historical distances from that line are not signals that would necessarily have been available at the time.
+
+**Projection is conditional** — Extending a fitted trend is a model scenario, not a price promise. Monte Carlo probabilities hold fitted parameters fixed and are not calibrated investment-success probabilities.
+
+**Daily crossings are not intraday touches** — Simulations use daily steps. Future dates exclude weekends but do not remove exchange holidays.
+
+**Data availability matters** — Coverage depends on the configured provider. The chart's latest dot represents the latest available adjusted daily close, not necessarily a live quote.
+
+**Leveraged funds carry additional risk** — SOXL and TQQQ can experience large losses, compounding effects, and behavior that differs substantially from an unleveraged index.
+
+This app supports research. It does not guarantee returns or provide a substitute for an independent investment decision.
 
 ---
 
-## 🚀 What Makes It Different
+<details>
+<summary><strong>🛠️ Technical Setup and Maintenance</strong></summary>
 
-- **It never refuses to compute** -- The allocation engine returns a valid recommendation for any window, including degenerate 1- or 2-bar inputs. The risk-metrics table always renders, with zero-values when the sample is too small to be meaningful, never a "please pick a longer window" dialog.
+### Technology
 
-- **Honest options modeling, no fake leverage** -- Calls are priced with plain Black-Scholes using trailing realized vol of SOXL. No vol-surface fitting, no Heston, no IV-smile fairy dust — and critically, no infinite refill of decaying premium. The asymmetric resize rule (sell down freely, refill only at rolls) cleanly caps loss at the premium paid per cycle, which is the actual behavior of a real long-call sleeve.
+- Python and Streamlit for the application interface.
+- NumPy and pandas for numerical analysis and time series.
+- Plotly and isolated HTML/JavaScript components for interactive charts.
+- Tiingo adjusted daily closes for the independent Mean Reversion history loader, with the existing EODHD provider used when configured instead.
+- Direct Anthropic and OpenAI credentials for the app's AI-assisted tools.
+- Neon PostgreSQL for persistent application data.
 
-- **Capital efficiency is a first-class metric** -- Every backtest shows Return per At-Risk Capital, not just total return. The strategy uses 20% of notional at risk vs SOXL B&H's 100%, and the platform reports both raw return AND return-per-risked-dollar so you can see which strategy is actually working harder.
+### Run the application
 
-- **Drawdown protection is verifiable** -- In a SOXL −70% stress scenario, the default engine demonstrates capital protection in numbers, not in marketing copy. You can re-run the backtest yourself on any window and see the Max DD / Sortino / Calmar gap vs buy-and-hold.
-
-- **Probability with sample size** -- Every probability output ships with the count of historical analogues that backs it. A "65% chance of a 10% drop in 30 days" with n=4 is shown as exactly that, so the user can judge the statistical weight before acting.
-
-- **No look-ahead leakage** -- The allocation signal is explicitly lagged one bar before being applied to returns. Realized-vol pricing uses only data up to today for today's mark-to-market. The engine is auditable in `backtest_engine.py` if you want to verify.
-
-- **One-click report export** -- After any backtest, download a complete TXT / CSV / Word / PDF report with parameters, methodology, metrics, and date range. Methodology text describes the actual implementation, not a glossy version of it.
-
-- **AI strategy builder grounded in real data** -- Claude doesn't generate strategy in a vacuum. The conversation includes the full computed probability tables and recent deviation context, so the generated entry ladder is anchored to actual historical frequencies, not LLM intuition.
-
-- **Provider credentials are explicit** -- AI, market-data, and payment features use standard environment variables configured by the deployment owner.
-
----
-
-## 🛠️ Tech Stack
-
-- **Python 3.11** with **Streamlit** for the single-page UI
-- **Plotly** for interactive charting (via a custom HTML/JS component for drag-to-draw trend lines)
-- **EODHD** (equity history up to 20y) + **Polygon** (options history, capped at 2y)
-- **yfinance** for supplementary intraday/snapshot quotes
-- **Anthropic Claude** via `ANTHROPIC_API_KEY`
-- **OpenAI (gpt-5)** via `OPENAI_API_KEY` for diagnostics and quality-control tools
-- **GPTZero** authenticity API for AI-generated-text detection in quality control
-- **Optional Google OIDC** via Streamlit native authentication
-- **Neon Postgres** (via `NEON_DATABASE_URL`, falling back to `DATABASE_URL`) — durable persistence for diagnostic runs, synthetic-user sessions, QC results, and app state
-- **dateutil** for trading-day math
-- **Black-Scholes pricing** implemented natively with `math.erf` — zero scipy dependency
-
----
-
-## 📂 Project Structure
-
-- `app.py` -- Main Streamlit entry; tab layout (Chart & Probabilities, Backtest, Strategy Builder)
-- `backtest_engine.py` -- All simulation math: `simulate_call_sleeve_engine`, `compute_risk_metrics`, `_bs_call_price`, deviation engine
-- `backtest_ui.py` -- Backtest tab UI: allocation engine, period analysis, probability engine, vol regime, dislocation, custom strategy, vol surface
-- `strategy_builder.py` -- AI strategy generation: Anthropic client, probability computations, strategy JSON parsing, styled HTML rendering
-- `data_providers.py` -- EODHD / Polygon / yfinance wrappers with 24h caching
-- `vol_surface.py` -- Options-chain BUY/SELL discrepancy analytics
-- `dislocation.py` -- SOXL-QQQ continuous deviation panel
-- `custom_strategy.py` -- User-composable indicator/operator strategy builder
-- `auth.py` -- Optional Google sign-in via Streamlit native OIDC; writes auth config only when needed
-- `openai_client.py` -- OpenAI client using standard environment variables
-- `db.py` -- Neon Postgres persistence: schema init + save/fetch for diagnostic runs, synthetic-user sessions, QC results
-- `diagnostic.py` -- System Check diagnostic: environment, data, engines, AI pings, GPTZero, and Neon connectivity
-- `synthetic_user.py` -- Synthetic User diagnostic: OpenAI persona → real Strategy Builder run → persisted session
-- `quality_control.py` -- Quality Control diagnostic: OpenAI legitimacy grading + GPTZero authenticity check
-- `components/chart_draw/index.html` -- Custom Streamlit component for the drag-to-draw chart
-- `.streamlit/config.toml` -- Streamlit server configuration
-
----
-
-## ▶️ Running
-
-Install the Python dependencies, then start the public gateway:
+Install the Python dependencies and start the public gateway:
 
 ```bash
 python -m pip install -r requirements.txt
 python seo_server.py
 ```
 
-The gateway binds to `0.0.0.0` and uses `PORT` when set, otherwise port `5000`.
-`APP_ENV=production` enables production search-engine responses. The default
-tab loads the SOXL log-scale chart; the Backtest tab opens directly on the
-Allocation Engine (the default strategy).
+The gateway listens on `0.0.0.0`, using `PORT` when configured and port `5000` otherwise.
 
-### Docker deployment
+### Configuration and credentials
+
+See [ENV_VARS.md](ENV_VARS.md) for runtime configuration. Keep all credentials in private environment variables, never in this README or source code.
+
+- `TIINGO_API_KEY` — adjusted daily prices for the independent Mean Reversion loader.
+- `EODHD_API_KEY` — the loader's existing alternative when Tiingo is not configured.
+- `NEON_DATABASE_URL` — this app's dedicated PostgreSQL connection; takes precedence over the `DATABASE_URL` fallback.
+- `ANTHROPIC_API_KEY` — direct Anthropic access for AI-assisted features.
+- `OPENAI_API_KEY` — direct OpenAI access for AI-assisted features and diagnostics.
+
+Optional `ANTHROPIC_BASE_URL` and `OPENAI_BASE_URL` support compatible custom endpoints. Leave them unset for standard provider endpoints.
+
+Use a dedicated database for this app rather than sharing the original SOXL Pro database. For a new external database, run `python setup_database.py` with that database configured. The setup creates tables without deleting existing records; market-data refreshes run separately.
+
+Configure credentials separately in each hosting environment. Do not assume credentials entered in one environment are available in another.
+
+### Independent Mean Reversion files
+
+| File | Purpose |
+| --- | --- |
+| `trend_reversion_model.py` | Log-trend fit, residual AR(1), cycle counts, grades, bands, and simulations |
+| `trend_reversion_data.py` | Full available adjusted-history loading and per-day caching |
+| `trend_reversion_ui.py` | Independent Streamlit controls, summaries, and comparison state |
+| `components/mean_reversion/` | Interactive Mean Reversion chart |
+| `tests/test_trend_reversion.py` | Model and threshold contract tests |
+| `tests/test_trend_reversion_data.py` | Adjusted-history adapter tests |
+| `tests/trend_reversion_chart.cjs` | Chart-configuration assertions |
+
+### Focused checks
 
 ```bash
-docker build --platform linux/arm64 -t soxl-analysis .
-docker run --rm -p 5000:5000 --env-file .env soxl-analysis
+python -m pytest -q tests/test_trend_reversion.py tests/test_trend_reversion_data.py
+node tests/trend_reversion_chart.cjs
 ```
 
-See [ENV_VARS.md](ENV_VARS.md) for all runtime configuration.
-For your own Neon database, set `NEON_DATABASE_URL` to the full PostgreSQL
-connection string in Coolify or the workspace's Secrets. It takes precedence
-for all app data, including Schwab OAuth tokens, market workers, visitor counts,
-diagnostics, and billing. Use a dedicated Neon database for this app to keep its
-data separate from other apps. `DATABASE_URL` remains a fallback. Secrets
-entered in the development workspace are not automatically transferred to
-Coolify.
+These checks cover the independent Mean Reversion feature. They are not a substitute for testing every existing SOXL research tool.
 
-For a new, empty external database, run `python setup_database.py` once from the
-application container (or as Coolify's pre-deployment command) with its database
-environment configured. It creates the app's tables without deleting or
-replacing existing records. The market worker then fills market data in the
-background; no market downloads run in the setup command.
-
-### AI provider credentials
-
-Set these as private environment variables in the hosting provider's dashboard,
-then redeploy:
-
-- `OPENAI_API_KEY` for OpenAI
-- `ANTHROPIC_API_KEY` for Anthropic
-
-Optional `OPENAI_BASE_URL` and `ANTHROPIC_BASE_URL` can be set for compatible
-custom endpoints; leave them unset for the providers' standard APIs. Missing
-provider credentials disable those features without preventing server startup.
-Never place API keys in source code or commit them to the repository.
+</details>
