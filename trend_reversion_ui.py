@@ -17,7 +17,7 @@ _component = components.declare_component(
 
 
 @st.cache_data(ttl=86400, max_entries=64, show_spinner=False)
-def _analyze_cycles(prices, dates):
+def _analyze_scorecard(prices, dates):
     return analyze(prices, dates)
 
 
@@ -41,7 +41,9 @@ def _remove(symbol):
 
 
 def compact_verdict(symbol, model):
-    return f'{symbol} — {model["grade"] or "Random walk"} · {model["position_sentence"]} · {model["trend_sentence"]}'
+    scores = model["scores"]
+    return (f'{symbol} — Overall {scores["overall"]} · Reversion {scores["mean_reversion"]}'
+            f' · Growth {scores["growth"]} · {model["grade"] or "Random walk"}')
 
 
 @st.fragment
@@ -72,7 +74,7 @@ def render_mean_reversion():
     try:
         with st.spinner(f"Analyzing {symbol} adjusted daily history…"):
             history = load_history(symbol)
-            model = _analyze_cycles(history["prices"], history["dates"])
+            model = _analyze_scorecard(history["prices"], history["dates"])
     except ValueError as exc:
         st.error(str(exc))
         return
@@ -114,7 +116,7 @@ def render_mean_reversion():
     for index, ticker in enumerate(list(st.session_state.mr_overlays)):
         try:
             comparison = load_history(ticker)
-            comparison_model = _analyze_cycles(comparison["prices"], comparison["dates"])
+            comparison_model = _analyze_scorecard(comparison["prices"], comparison["dates"])
             row = st.columns([6, 1, 1])
             row[0].write(compact_verdict(ticker, comparison_model))
             row[1].button("Analyze this", key=f"mr_select_{ticker}",
@@ -122,7 +124,8 @@ def render_mean_reversion():
             row[2].button("Remove", key=f"mr_remove_{ticker}",
                           on_click=_remove, args=(ticker,))
             if ticker != symbol:
-                overlays.append({**comparison, "color": ["#9333ea", "#e98e2e", "#0891b2", "#db2777"][index % 4]})
+                overlays.append({**comparison, "scores": comparison_model["scores"],
+                                 "color": ["#9333ea", "#e98e2e", "#0891b2", "#db2777"][index % 4]})
         except ValueError as exc:
             st.warning(f"{ticker}: {exc}")
             st.button("Remove", key=f"mr_remove_bad_{ticker}", on_click=_remove, args=(ticker,))

@@ -43,6 +43,33 @@
       </label>
     </div>
 
+    <section class="mr-scorecard" aria-label="Mean reversion research scorecard" aria-live="polite">
+      <div class="mr-scorecard-heading">
+        <p class="mr-scorecard-kicker">RESEARCH SCORECARD</p>
+        <p class="mr-scorecard-context">A read on repeated returns against the full-history trend.</p>
+      </div>
+      <div class="mr-scorecard-metrics">
+        <article class="mr-score-metric mr-score-metric-reversion">
+          <div class="mr-score-label">MEAN REVERSION SCORE</div>
+          <div class="mr-score-value-line"><span id="mr-reversion-score" class="mr-score-value">Unavailable</span><span class="mr-score-scale">/ 100</span></div>
+          <p id="mr-reversion-grade" class="mr-score-detail">Unavailable</p>
+        </article>
+        <article class="mr-score-metric mr-score-metric-growth">
+          <div class="mr-score-label">GROWTH SCORE</div>
+          <div class="mr-score-value-line"><span id="mr-growth-score" class="mr-score-value">Unavailable</span><span class="mr-score-scale">/ 100</span></div>
+          <p id="mr-growth-sentence" class="mr-score-detail">Unavailable</p>
+        </article>
+        <article class="mr-score-metric mr-score-metric-overall">
+          <div class="mr-score-label">OVERALL SCORE</div>
+          <div class="mr-score-value-line"><span id="mr-overall-score" class="mr-score-value">Unavailable</span><span class="mr-score-scale">/ 100</span></div>
+          <p id="mr-position-sentence" class="mr-score-detail">Unavailable</p>
+        </article>
+      </div>
+      <p id="mr-cycle-sentence" class="mr-cycle-sentence">Unavailable</p>
+      <p id="mr-random-walk-warning" class="mr-random-walk-warning" hidden>Random walk — price does not reliably return to its trend line</p>
+      <p id="mr-score-note" class="mr-cycle-sentence" hidden></p>
+    </section>
+
     <div id="chart-scroll" class="chart-scroll" tabindex="0" aria-label="Scrollable chart area">
       <div id="chart-container" class="chart-container">
         <div id="chart" aria-label="Mean reversion price chart and distance-from-trend plot"></div>

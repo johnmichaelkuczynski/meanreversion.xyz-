@@ -698,3 +698,31 @@ mtime_ms = 1795042450581
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:b0d92c61-69e9-4427-b00c-62f99328260c/bf0718fe-d374-4315-8ed9-66e12a4d5be0/fe1bc5a0-8f9c-4acb-994c-de2a7fba0d51"
 storage_version_token = "1795042460358330"
 content_type = "text/html"
+
+[[outputs]]
+id = "gX74mP1CY-8EGBI-1Np0z"
+uri = "file://generated-artifacts/mean-reversion-soxl-scorecard.png"
+type = "image"
+title = "SOXL scorecard above the chart"
+description = "Verified running-app screenshot: Reversion 63 Strong, Growth 98, Overall 78, plus slope, position, and cycle history."
+logical_id = "c3c89332-6749-4a72-a6bf-79b0b015589f"
+content_hash = "sha256:a3b7c5e7cd1cae7b5aa23e52b0688a89717b64fcf4cdef67f9e505cfc24d9f15"
+size = 251051
+mtime_ms = 1795107039128
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:b0d92c61-69e9-4427-b00c-62f99328260c/c3c89332-6749-4a72-a6bf-79b0b015589f/05cb29e2-52fb-4902-b63f-906589753373"
+storage_version_token = "1795107090070882"
+content_type = "image/png"
+
+[[outputs]]
+id = "URK2kiTECD8G9Pb3FqqhC"
+uri = "file://generated-artifacts/mean-reversion-scorecard-validation.csv"
+type = "table"
+title = "Five-ticker scorecard validation"
+description = "Cycles, cycles per decade, trading-day half-life, annual slope, and all three scores for SOXL, TQQQ, SPY, KO, and MSFT."
+logical_id = "bd81ede4-930a-4bfc-b5f4-444873cc946e"
+content_hash = "sha256:72af1d8c5c6fd339b042e0092d3cd98a0299b8bb23e75c9d3b89b5c3eef65324"
+size = 540
+mtime_ms = 1795106995754
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:b0d92c61-69e9-4427-b00c-62f99328260c/bd81ede4-930a-4bfc-b5f4-444873cc946e/cd8be2ce-9ef9-414c-8bf7-b6e3ae1685bf"
+storage_version_token = "1795107090718201"
+content_type = "text/csv"

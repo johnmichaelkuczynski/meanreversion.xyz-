@@ -35,3 +35,13 @@ for the new model, never suppress its trend because of a verdict, and label
 Monte Carlo touches as conditional model estimates rather than empirically
 calibrated success rates. If the AR(1) stationary spread is undefined, show
 observed residual spread with an explicit label instead of hiding the bands.
+
+The user's screening goal requires both repeated returns to trend and a rising,
+ideally steep, trend. Keep the reversion grade distinct from growth and the
+combined score; none is an estimated probability of investment success.
+
+**Why:** A strong reversion grade alone can describe a flat or falling trend,
+which does not satisfy the user's stated goal.
+
+**How to apply:** Preserve both dimensions in summaries and comparisons, and
+do not relabel a 0–100 composite score as a percentage chance of success.

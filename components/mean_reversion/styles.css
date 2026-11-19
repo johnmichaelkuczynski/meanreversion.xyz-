@@ -183,6 +183,84 @@ h1 { margin: 0; font-size: clamp(19px, 3vw, 25px); font-weight: 700; letter-spac
   .range-control { grid-template-columns: auto minmax(70px, 1fr) auto; flex: 1 1 100%; }
   .future-control input { min-width: 120px; }
 }
+
+/* Scorecard additions are deliberately namespaced to leave the chart untouched. */
+.mr-scorecard {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 13px 22px;
+  margin: 0 0 13px;
+  padding: 16px 17px 13px;
+  border: 1px solid #d5dfdc;
+  border-left: 3px solid #477e73;
+  border-radius: 6px;
+  color: #263a3c;
+  background: linear-gradient(112deg, #f1f6f3 0%, #f8faf8 62%, #f4f7f5 100%);
+  animation: mr-scorecard-enter .32s ease-out both;
+}
+.mr-scorecard-heading { align-self: start; }
+.mr-scorecard-kicker {
+  margin: 1px 0 6px;
+  color: #477e73;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .13em;
+}
+.mr-scorecard-context { margin: 0; color: #526763; font-size: 14px; line-height: 1.45; }
+.mr-scorecard-metrics {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.08fr;
+  align-items: stretch;
+}
+.mr-score-metric { min-width: 0; padding: 0 15px; border-left: 1px solid #dbe4e0; }
+.mr-score-metric:first-child { border-left: 0; }
+.mr-score-label { color: #526763; font-size: 12px; font-weight: 800; letter-spacing: .06em; line-height: 1.35; }
+.mr-score-value-line { display: flex; align-items: baseline; gap: 5px; margin-top: 3px; font-variant-numeric: tabular-nums; }
+.mr-score-value { color: #315e55; font-size: clamp(36px, 4vw, 48px); font-weight: 750; letter-spacing: -.055em; line-height: 1.08; }
+.mr-score-metric-overall .mr-score-value { color: #213e3a; font-size: clamp(48px, 5vw, 64px); }
+.mr-score-scale { color: #83918e; font-size: 11px; font-weight: 600; }
+.mr-score-detail { min-height: 20px; margin: 5px 0 0; color: #425853; font-size: 15px; line-height: 1.45; }
+.mr-score-metric-overall .mr-score-detail { color: #425853; }
+.mr-cycle-sentence {
+  grid-column: 1;
+  margin: -4px 0 0;
+  padding-top: 9px;
+  border-top: 1px solid #dbe4e0;
+  color: #536763;
+  font-size: 15px;
+  line-height: 1.45;
+}
+.mr-random-walk-warning {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid #e4d2b5;
+  border-radius: 4px;
+  color: #755b31;
+  background: #faf5e9;
+  font-size: 11px;
+  line-height: 1.4;
+}
+@keyframes mr-scorecard-enter {
+  from { opacity: .72; transform: translateY(3px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (max-width: 600px) {
+  .mr-scorecard { grid-template-columns: 1fr; gap: 12px; padding: 14px 12px 12px; }
+  .mr-scorecard-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+  .mr-scorecard-kicker { flex: 0 0 auto; }
+  .mr-scorecard-context { text-align: right; }
+  .mr-scorecard-metrics { grid-template-columns: 1fr 1fr 1fr; }
+  .mr-score-metric { padding: 0 8px; }
+  .mr-score-metric:first-child { padding-left: 0; }
+  .mr-score-metric:last-child { padding-right: 0; }
+  .mr-score-label { font-size: 10px; letter-spacing: .045em; }
+  .mr-score-value { font-size: clamp(26px, 7vw, 34px); }
+  .mr-score-metric-overall .mr-score-value { font-size: clamp(36px, 8vw, 44px); }
+  .mr-score-scale { font-size: 9px; }
+  .mr-score-detail { font-size: 13px; }
+  .mr-cycle-sentence { grid-column: 1; }
+}
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; }
 }

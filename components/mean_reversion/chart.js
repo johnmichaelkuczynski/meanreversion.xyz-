@@ -1,3 +1,35 @@
+function renderScorecard(model) {
+  var source = model && model.scores ? model.scores : {};
+  function scoreText(value) {
+    return Number.isInteger(value) && value >= 0 && value <= 100 ? String(value) : "Unavailable";
+  }
+  function sentenceText(value) {
+    return typeof value === "string" && value.trim() ? value : "Unavailable";
+  }
+  var reversion = document.getElementById("mr-reversion-score");
+  var growth = document.getElementById("mr-growth-score");
+  var overall = document.getElementById("mr-overall-score");
+  var grade = document.getElementById("mr-reversion-grade");
+  var growthSentence = document.getElementById("mr-growth-sentence");
+  var positionSentence = document.getElementById("mr-position-sentence");
+  var cycleSentence = document.getElementById("mr-cycle-sentence");
+  var warning = document.getElementById("mr-random-walk-warning");
+  if (reversion) reversion.textContent = scoreText(source.mean_reversion);
+  if (growth) growth.textContent = scoreText(source.growth);
+  if (overall) overall.textContent = scoreText(source.overall);
+  if (grade) grade.textContent = model && model.random_walk ? "Random walk" :
+    (model && ["Strong", "Moderate", "Weak"].includes(model.grade) ? model.grade : "Unavailable");
+  if (growthSentence) growthSentence.textContent = sentenceText(model && model.trend_sentence);
+  if (positionSentence) positionSentence.textContent = sentenceText(model && model.position_sentence);
+  if (cycleSentence) cycleSentence.textContent = sentenceText(model && model.cycle_sentence);
+  if (warning) warning.hidden = !(model && model.random_walk);
+  var note = document.getElementById("mr-score-note");
+  if (note) {
+    note.textContent = model && model.score_note ? model.score_note : "";
+    note.hidden = !note.textContent;
+  }
+}
+
 (function () {
   "use strict";
 
@@ -175,6 +207,14 @@
       actual.push(itemPrice);
     }
     var symbol = String(overlay.symbol || "Comparison");
+    var scores = overlay.scores;
+    var legendName = escapeHtml(symbol) + " (scaled)";
+    if (scores && Number.isInteger(scores.overall) && scores.overall >= 0 && scores.overall <= 100 &&
+        Number.isInteger(scores.mean_reversion) && scores.mean_reversion >= 0 && scores.mean_reversion <= 100 &&
+        Number.isInteger(scores.growth) && scores.growth >= 0 && scores.growth <= 100) {
+      legendName = escapeHtml(symbol) + " — Overall " + scores.overall +
+        " · Reversion " + scores.mean_reversion + " · Growth " + scores.growth + " (scaled)";
+    }
     return {
       type: "scatter",
       mode: "lines",
@@ -182,7 +222,7 @@
       y: normalized,
       xaxis: "x",
       yaxis: "y",
-      name: escapeHtml(symbol) + " (scaled)",
+      name: legendName,
       legendgroup: "overlays",
       line: { color: safeColor(overlay.color), width: 1.35, dash: "dot" },
       customdata: actual,
@@ -376,6 +416,7 @@
   }
 
   function render() {
+    renderScorecard(payload && payload.verdict);
     if (!payload) return;
     if (!window.Plotly) {
       reportError(new Error("The Plotly chart library did not load. Check the network connection and retry."));
@@ -587,6 +628,7 @@
     var args = message.args || {};
     if (!args.payload || typeof args.payload !== "object") {
       payload = null;
+      renderScorecard(payload);
       emptyState.hidden = false;
       setStatus("Waiting for chart data…", "loading");
       return;

@@ -52,4 +52,34 @@ assert.equal(vm.runInContext("getLayout(testData, prepared).yaxis2.visible", con
 assert.doesNotMatch(source, /gate_passed|gatePassed|no trend line drawn/);
 assert.match(source, /xaxis\.p2d\(px\)/);
 assert.doesNotMatch(source, /window\.parent\.document/);
+// The scorecard uses the model's existing grade, not new client thresholds.
+const elements = {};
+const scoreContext = {document: {getElementById(id) { return elements[id] ||= {textContent: "", hidden: false}; }}};
+vm.createContext(scoreContext);
+vm.runInContext(source.slice(0, source.indexOf("(function ()")), scoreContext);
+scoreContext.renderScorecard({
+  scores: {mean_reversion: 63, growth: 98, overall: 78}, grade: "Strong", random_walk: false,
+  trend_sentence: "Trend rising 39.4% per year.", position_sentence: "45.9% below trend",
+  cycle_sentence: "13 round trips to trend since 2010", score_note: ""
+});
+assert.equal(elements["mr-reversion-score"].textContent, "63");
+assert.equal(elements["mr-reversion-grade"].textContent, "Strong");
+assert.equal(elements["mr-overall-score"].textContent, "78");
+scoreContext.renderScorecard({
+  scores: {mean_reversion: 0, growth: 48, overall: 0}, grade: null, random_walk: true,
+  trend_sentence: "Trend rising 19.1% per year.", position_sentence: "4.3% below trend",
+  cycle_sentence: "3 round trips to trend since 1986"
+});
+assert.equal(elements["mr-reversion-score"].textContent, "0");
+assert.equal(elements["mr-reversion-grade"].textContent, "Random walk");
+assert.equal(elements["mr-random-walk-warning"].hidden, false);
+assert.equal(elements["mr-growth-sentence"].textContent, "Trend rising 19.1% per year.");
+scoreContext.renderScorecard(null);
+assert.equal(elements["mr-overall-score"].textContent, "Unavailable");
+data.overlays[0].scores = {overall: 48, mean_reversion: 41, growth: 56};
+assert.ok(vm.runInContext("makeTraces(testData)", context).traces.some(
+  trace => trace.name === "OTHER — Overall 48 · Reversion 41 · Growth 56 (scaled)"));
+const html = fs.readFileSync("components/mean_reversion/index.html", "utf8");
+assert.ok(html.indexOf('class="mr-scorecard"') < html.indexOf('id="chart-scroll"'));
+assert.match(source, /renderScorecard\(payload && payload\.verdict\)/);
 console.log("Mean Reversion chart: bands and projections always visible, dollar-only log labels, log annotation, overlays and live-axis tooltips passed.");

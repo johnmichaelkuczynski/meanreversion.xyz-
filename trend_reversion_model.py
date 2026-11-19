@@ -11,6 +11,9 @@ CONFIG = {
     "moderate": {"cycles": 6, "half_life": 300},
     "minimum_cycles": 4,
     "random_walk_phi": .9995,
+    "score_cycles_per_decade": 6,
+    "score_half_life_days": 250,
+    "score_growth_rate": .40,
     "simulation_paths": 20_000,
 }
 
@@ -72,6 +75,29 @@ def half_life_words(days):
     return f"{days / 252:.1f} years"
 
 
+def score_model(model, config=None):
+    """Score unrounded components first, then round the three display values."""
+    config = CONFIG if config is None else {**CONFIG, **config}
+    years = (pd.Timestamp(model["through"]) - pd.Timestamp(model["start"])).days / 365.2425
+    cycles_per_decade = model["cycles"] / years * 10 if years > 0 else 0.
+    half_life = model["half_life"]
+    reversion = 0.
+    if not model["random_walk"] and half_life is not None and math.isfinite(half_life):
+        reversion = (100 * min(1., cycles_per_decade / config["score_cycles_per_decade"])
+                     * math.exp(-half_life / config["score_half_life_days"]))
+    growth = 100 * float(np.clip(np.expm1(model["g"]) / config["score_growth_rate"], 0, 1))
+    overall = math.sqrt(reversion * growth)
+    return {
+        "years_of_history": years,
+        "cycles_per_decade": cycles_per_decade,
+        "scores": {"mean_reversion": round(reversion), "growth": round(growth),
+                   "overall": round(overall)},
+        "scores_raw": {"mean_reversion": reversion, "growth": growth, "overall": overall},
+        "score_note": ("Reversion score is 0 because no finite positive-AR(1) half-life is available."
+                       if not model["random_walk"] and half_life is None else ""),
+    }
+
+
 def analyze(prices, dates, config=None):
     """All inputs must be full-history, positive adjusted closes."""
     config = CONFIG if config is None else {**CONFIG, **config}
@@ -113,9 +139,11 @@ def analyze(prices, dates, config=None):
               if half_life is not None else "no finite positive-AR(1) half-life")
     result.update(
         grade=grade, cycles=cycles, random_walk=grade is None,
+        cycle_sentence=f"{cycles} round trips to trend since {dates[0].year}; {timing}.",
         status=(f"{grade} — {cycles} round trips to trend since {dates[0].year}; {timing}."
                 if grade else "Random walk — price does not reliably return to its trend line"),
     )
+    result.update(score_model(result, config))
     return result
 
 
