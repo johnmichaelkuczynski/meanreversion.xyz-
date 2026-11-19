@@ -16,14 +16,18 @@ workspace.render_mean_reversion_workspace()
 """
 
 
-def test_top_workspace_precedes_all_legacy_content():
-    tree = ast.parse(Path("app.py").read_text())
-    calls = [node.value.func.id for node in tree.body
-             if isinstance(node, ast.Expr) and isinstance(node.value, ast.Call)
-             and isinstance(node.value.func, ast.Name)]
-    assert calls.index("render_mean_reversion_workspace") < calls.index("render_account_header")
-    assert calls.index("render_mean_reversion_workspace") < calls.index("render_top_soxl_price")
-    assert "from trend_reversion_ui import" not in Path("app.py").read_text()
+def test_mean_reversion_and_soxl_have_separate_pages():
+    tree = ast.parse(Path("main.py").read_text())
+    pages = [node for node in ast.walk(tree)
+             if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+             and node.func.attr == "Page"]
+    assert len(pages) == 2
+    assert pages[0].args[0].id == "render_mean_reversion_workspace"
+    assert any(kw.arg == "default" and kw.value.value is True for kw in pages[0].keywords)
+    assert pages[1].args[0].value == "app.py"
+    assert any(kw.arg == "url_path" and kw.value.value == "soxl" for kw in pages[1].keywords)
+    assert "render_mean_reversion_workspace" not in Path("app.py").read_text()
+    assert 'with_name("main.py")' in Path("streamlit_backend.py").read_text()
 
 
 def test_blank_chart_and_scores_exist_before_input():

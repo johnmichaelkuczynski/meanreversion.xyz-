@@ -67,7 +67,7 @@ class SearchableServer(Server):
 
 
 def main():
-    main_script = str(Path(__file__).with_name("app.py").resolve())
+    main_script = str(Path(__file__).with_name("main.py").resolve())
     config._main_script_path = main_script
     flags = {"server.port": 8501, "server.address": "127.0.0.1", "server.headless": True, "server.useStarlette": False}
     bootstrap.load_config_options(flag_options=flags)

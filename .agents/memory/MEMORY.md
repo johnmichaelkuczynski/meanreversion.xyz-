@@ -20,10 +20,11 @@
 - [Market health evidence](market-health-evidence.md) — optional telemetry must not gate saved results or imply an open chart adopted newer background data.
 - [Hypothetical entry slider](hypothetical-entry-slider.md) — chosen price is a hypothetical entry, not a target-hit question; preserve the existing daily indicator.
 - [Mean reversion statistics](mean-reversion-statistics.md) — R/S on log increments; anti-persistence is not proof of profitable price-level reversion.
-- [Landing chart priority](landing-chart-priority.md) — Mean Reversion first, large chart above ticker entry; SOXL/SRH content below.
+- [Landing chart priority](landing-chart-priority.md) — page 1 is Mean Reversion, with chart above ticker entry; all SOXL/SRH content is on separate page 2.
 - [Price scenario validation](price-scenario-validation.md) — observed entry closes cannot validate same-date counterfactual prices; retrospective holdouts are not prospective trials.
 - [K research integrity](k-research-integrity.md) — reused SOXL history is not a fresh holdout; retain failed and empty tied-rank comparisons rather than tuning them.
 - [Streamlit component actions](streamlit-component-action-echoes.md) — visual toggles stay browser-local; server actions use callbacks; verify updates reach already-open tabs.
+- [Multipage component registration](streamlit-page-components.md) — declare custom iframe components from imported modules; page script namespaces can fail caller inspection.
 - [One-button diagnostics](diagnostics-contract.md) — one action, explicit evidence and coverage limits; isolated exercises must never alter the user's chart.
 - [ARM64 Python wheels](arm64-python-wheels.md) — cross-platform pip builds need several compatible manylinux tags, not only the newest tag.
 - [Schwab market-data ownership](schwab-market-data.md) — use the owner's keys directly for Coolify portability; registered OAuth callback is on soxl.ai.

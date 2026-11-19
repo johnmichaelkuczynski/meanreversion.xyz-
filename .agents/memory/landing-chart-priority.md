@@ -1,18 +1,18 @@
 ---
 name: Landing chart priority
-description: Mean Reversion comes first; preserve the SOXL section's internal order below it.
+description: Mean Reversion owns page 1; all SOXL content belongs on separate page 2.
 ---
 
-Mean Reversion is the first main content on the page, including its score area
+Mean Reversion owns page 1 and is the default landing page, including its score area
 and a large chart visible even before a ticker is entered. Its ticker entry
-belongs below that chart. The existing SOXL/SRH content belongs below the
-entire Mean Reversion workspace.
+belongs below that chart. All existing SOXL/SRH content belongs on a separate
+page 2, not below Mean Reversion on the same page.
 
-**Why:** The user repeatedly required Mean Reversion at the absolute top,
-superseding the earlier SOXL-first page order.
+**Why:** The user explicitly required separate pages for Mean Reversion and
+SOXL, superseding both the SOXL-first order and the combined-page layout.
 
-**How to apply:** Do not let the account header, SOXL quote, diagnostics or
-SOXL signal precede Mean Reversion. Within the lower SOXL section, preserve
+**How to apply:** Do not show the SOXL account header, quote, diagnostics or
+signal on the Mean Reversion page. Within the SOXL page, preserve
 the daily signal followed by its actual interactive drawing/projection chart.
 
 Chart controls must start expanded and readable, with the header fully below the incline bar. Do not auto-shrink the panel to the small portion of the iframe visible when it first enters the viewport.

@@ -37,10 +37,6 @@ st.set_page_config(page_title=TITLE, page_icon="📈", layout="wide")
 from clean_presentation import apply_clean_presentation
 apply_clean_presentation()
 
-from mean_reversion_workspace import render_mean_reversion_workspace
-render_mean_reversion_workspace()
-st.divider()
-
 from top_soxl_price import render_top_soxl_price
 
 current_user = get_current_user()
@@ -90,9 +86,8 @@ _chart_bundle = b"".join(
 _chart_version = hashlib.sha256(_chart_bundle).hexdigest()[:12]
 # A stable key alone can reuse an already-loaded iframe after its files change.
 # Version the component URL so existing preview tabs receive the new bundle.
-chart_component = components.declare_component(
-    f"chart_draw_{_chart_version}", path=str(_chart_directory)
-)
+from soxl_chart_component import declare_soxl_chart
+chart_component = declare_soxl_chart(_chart_directory, _chart_version)
 
 
 @st.cache_data(ttl=300)
