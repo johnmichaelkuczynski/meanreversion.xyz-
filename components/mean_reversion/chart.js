@@ -415,9 +415,33 @@ function renderScorecard(model) {
     };
   }
 
+  function renderRemovalControls() {
+    var controls = document.getElementById("remove-controls");
+    if (!controls) return;
+    controls.replaceChildren();
+    var symbols = payload.removable_symbols || [payload.symbol];
+    function addButton(label, action, symbol) {
+      var button = document.createElement("button");
+      button.type = "button";
+      button.textContent = label;
+      button.addEventListener("click", function () {
+        controls.querySelectorAll("button").forEach(function (item) { item.disabled = true; });
+        window.parent.postMessage({
+          isStreamlitMessage: true, type: "streamlit:setComponentValue", dataType: "json",
+          value: {action: action, symbol: symbol || null, nonce: Date.now() + ":" + Math.random()}
+        }, "*");
+      });
+      controls.appendChild(button);
+    }
+    symbols.forEach(function (symbol) { addButton("Remove " + symbol, "remove", symbol); });
+    addButton("Remove last added", "remove", symbols[symbols.length - 1]);
+    addButton("Remove all charts", "remove_all");
+  }
+
   function render() {
     renderScorecard(payload && payload.verdict);
     if (!payload) return;
+    renderRemovalControls();
     if (!window.Plotly) {
       reportError(new Error("The Plotly chart library did not load. Check the network connection and retry."));
       return;

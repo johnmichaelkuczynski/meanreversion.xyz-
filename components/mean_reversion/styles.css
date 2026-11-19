@@ -22,6 +22,13 @@ body {
   overflow-x: hidden;
 }
 button, input { font: inherit; }
+.remove-controls { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 4px; }
+.remove-controls button {
+  padding: 8px 12px; border: 1px solid #ae514b; border-radius: 5px;
+  background: #fff; color: #913d37; font-size: 13px; font-weight: 650; cursor: pointer;
+}
+.remove-controls button:hover { background: #fff1ef; }
+.remove-controls button:disabled { opacity: .55; cursor: wait; }
 button:focus-visible, input:focus-visible, .chart-scroll:focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 2px;

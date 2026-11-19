@@ -45,3 +45,12 @@ which does not satisfy the user's stated goal.
 
 **How to apply:** Preserve both dimensions in summaries and comparisons, and
 do not relabel a 0–100 composite score as a percentage chance of success.
+
+Stock removal must be obvious at the Mean Reversion chart itself, including
+removing a chosen ticker, the last addition, and all Mean Reversion charts.
+
+**Why:** The user repeatedly could not find the earlier comparison-row removal
+controls and explicitly asked how to get rid of unwanted chart additions.
+
+**How to apply:** Keep immediate, clearly named removal actions beside the chart;
+do not rely on controls elsewhere on the page or alter other chart features.

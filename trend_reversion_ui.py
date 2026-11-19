@@ -1,5 +1,6 @@
 """Additive Streamlit surface; all state and chart instances are independent."""
 from datetime import date
+from functools import partial
 from pathlib import Path
 
 import pandas as pd
@@ -38,6 +39,28 @@ def _select(symbol):
 
 def _remove(symbol):
     st.session_state.mr_overlays = [s for s in st.session_state.mr_overlays if s != symbol]
+
+
+def _chart_action(key):
+    """Apply an immediate chart-toolbar action to this feature's state only."""
+    event = st.session_state.get(key)
+    if not isinstance(event, dict):
+        return
+    action = event.get("action")
+    if action == "remove_all":
+        st.session_state.mr_overlays = []
+        st.session_state.mr_loaded = False
+    elif action == "remove":
+        symbol = event.get("symbol")
+        if symbol == st.session_state.mr_ticker:
+            remaining = [s for s in st.session_state.mr_overlays if s != symbol]
+            st.session_state.mr_overlays = remaining[:-1]
+            if remaining:
+                _select(remaining[-1])
+            else:
+                st.session_state.mr_loaded = False
+        else:
+            _remove(symbol)
 
 
 def compact_verdict(symbol, model):
@@ -132,10 +155,12 @@ def render_mean_reversion():
         except Exception:
             st.warning(f"{ticker}: daily comparison history is temporarily unavailable.")
             st.button("Remove", key=f"mr_remove_unavailable_{ticker}", on_click=_remove, args=(ticker,))
+    chart_key = "mr_chart_" + symbol
     _component(payload={
         **history, "verdict": model, "forecast": future,
         "historical_trend": historical, "overlays": overlays,
-    }, key="mr_chart_" + symbol, default=None)
+        "removable_symbols": [symbol] + [s for s in st.session_state.mr_overlays if s != symbol],
+    }, key=chart_key, default=None, on_change=partial(_chart_action, chart_key))
     with st.form("mr_overlay_form", clear_on_submit=True):
         ticker = st.text_input("Add ticker", max_chars=30, key="mr_overlay_input")
         add = st.form_submit_button("Add")
