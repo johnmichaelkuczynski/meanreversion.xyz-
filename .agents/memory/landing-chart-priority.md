@@ -1,13 +1,19 @@
 ---
 name: Landing chart priority
-description: User requires the interactive SOXL chart immediately after the signal.
+description: Mean Reversion comes first; preserve the SOXL section's internal order below it.
 ---
 
-The long-term/daily signal should be the first main content, and the actual interactive SOXL line chart immediately below it, before the price slider, K Metric, and research sections.
+Mean Reversion is the first main content on the page, including its score area
+and a large chart visible even before a ticker is entered. Its ticker entry
+belongs below that chart. The existing SOXL/SRH content belongs below the
+entire Mean Reversion workspace.
 
-**Why:** The user explicitly said the chart must be the second thing users see, not buried below analytics.
+**Why:** The user repeatedly required Mean Reversion at the absolute top,
+superseding the earlier SOXL-first page order.
 
-**How to apply:** Preserve the actual drawing/projection chart and controls; do not substitute a static duplicate. New analytics should not push the chart down again.
+**How to apply:** Do not let the account header, SOXL quote, diagnostics or
+SOXL signal precede Mean Reversion. Within the lower SOXL section, preserve
+the daily signal followed by its actual interactive drawing/projection chart.
 
 Chart controls must start expanded and readable, with the header fully below the incline bar. Do not auto-shrink the panel to the small portion of the iframe visible when it first enters the viewport.
 

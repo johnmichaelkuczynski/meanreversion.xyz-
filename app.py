@@ -37,6 +37,10 @@ st.set_page_config(page_title=TITLE, page_icon="📈", layout="wide")
 from clean_presentation import apply_clean_presentation
 apply_clean_presentation()
 
+from mean_reversion_workspace import render_mean_reversion_workspace
+render_mean_reversion_workspace()
+st.divider()
+
 from top_soxl_price import render_top_soxl_price
 
 current_user = get_current_user()
@@ -1665,8 +1669,5 @@ with st.expander("About SOXL Pro"):
     st.markdown(ABOUT_HTML, unsafe_allow_html=True)
 
 _background_update_diagnostics(saved_market)
-
-from trend_reversion_ui import render_mean_reversion
-render_mean_reversion()
 
 flush_analytics()
