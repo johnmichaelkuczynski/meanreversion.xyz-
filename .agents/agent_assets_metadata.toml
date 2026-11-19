@@ -740,3 +740,31 @@ mtime_ms = 1795116597258
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:b0d92c61-69e9-4427-b00c-62f99328260c/a5ee285c-32af-47fd-af87-e8daa69efa1c/b5c3e6bb-7f2a-48cd-8767-0b7324832469"
 storage_version_token = "1795116613529197"
 content_type = "image/jpeg"
+
+[[outputs]]
+id = "eSshl3Ypd5rX63tBpfuQ2"
+uri = "file://generated-artifacts/mean-reversion-winner-validation.txt"
+type = "text"
+title = "Mean Reversion validation — all eight tickers"
+description = "Full results for growth, swing size, excursion area, pull, verdict, both scores and position; includes the Paper Hands ordering mismatch."
+logical_id = "45286770-8719-47d5-a26b-3eb17be632ac"
+content_hash = "sha256:6a80c4424eb66d57407e4fa31458ca3394a6f0cd9c2179acc461a88535aadaca"
+size = 3357
+mtime_ms = 1795120173290
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:b0d92c61-69e9-4427-b00c-62f99328260c/45286770-8719-47d5-a26b-3eb17be632ac/806d9d3b-a609-4c7d-868d-d5a2e29f01a6"
+storage_version_token = "1795120298933075"
+content_type = "text/plain"
+
+[[outputs]]
+id = "jJN08j1uXL9aBkdYOriSR"
+uri = "file://generated-artifacts/mean-reversion-winner-screen.jpg"
+type = "image"
+title = "Mean Reversion with the new winner scores"
+description = "Verified running page with default SOXL, three trend lines, shaded buy zone, Steel Hands/Paper Hands selector and score readout."
+logical_id = "1d8a5374-96dc-41fe-8e00-c279e111da67"
+content_hash = "sha256:6ac3ea2cda88a53798439499ec2ab2c27f853f1b201d1ec1355ba0dbe94901b0"
+size = 165345
+mtime_ms = 1795120254610
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:b0d92c61-69e9-4427-b00c-62f99328260c/1d8a5374-96dc-41fe-8e00-c279e111da67/cc488e8f-df04-49d3-b792-ff1a92b35d16"
+storage_version_token = "1795120299691797"
+content_type = "image/jpeg"

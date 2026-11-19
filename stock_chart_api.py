@@ -23,13 +23,13 @@ def normalize_stock_symbol(value):
     return symbol
 
 
-def load_stock_history(symbol, *, start_date="2000-01-01"):
+def load_stock_history(symbol, *, start_date="2000-01-01", tiingo_only=False):
     import os
     from datetime import date
     import pandas as pd
     import requests
     from chart_payload import clean_chart_points
-    if os.environ.get("EODHD_API_KEY", "").strip():
+    if not tiingo_only and os.environ.get("EODHD_API_KEY", "").strip():
         from data_providers import get_custom_benchmark_history
         code = re.sub(r"\.([AB])$", r"-\1.US", symbol)
         history = get_custom_benchmark_history(code)
@@ -48,6 +48,8 @@ def load_stock_history(symbol, *, start_date="2000-01-01"):
         response.raise_for_status()
         rows = response.json()
         history = pd.DataFrame(rows) if isinstance(rows, list) else pd.DataFrame()
+        if tiingo_only and (history.empty or "date" not in history or "adjClose" not in history):
+            raise ValueError(f"No adjusted daily close history was found for {symbol}.")
         if not history.empty and "date" in history and "adjClose" in history:
             history.index = pd.to_datetime(history["date"], utc=True).dt.tz_localize(None)
             history = history.rename(columns={"adjClose": "Close"}).sort_index()

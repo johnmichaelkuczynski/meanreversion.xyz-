@@ -13,13 +13,22 @@ import numpy as np
 def fixture_history(symbol):
     if symbol == "BAD":
         raise ValueError("No daily price history was found for BAD.")
-    dates = pd.bdate_range(end="2026-11-18", periods=120)
-    values = np.exp(4 + .002*np.arange(120) + .1*np.sin(np.arange(120)/10))
+    dates = pd.bdate_range(end="2026-11-18", periods=1512)
+    values = np.exp(4 + .002*np.arange(1512) + .1*np.sin(np.arange(1512)/10))
     return {"symbol": symbol, "dates": dates.strftime("%Y-%m-%d").tolist(),
             "prices": values.tolist(), "through": "2026-11-18", "source": "test fixture"}
 workspace._cached_stock_history = fixture_history
+workspace._cached_reference_analyses = lambda: (
+    {s: workspace.analyze_winner(fixture_history(s)) for s in workspace.REFERENCE_SYMBOLS}, [])
 workspace.render_mean_reversion_workspace()
 """
+
+
+def chart(app):
+    figure = json.loads(app.get("plotly_chart")[0].proto.spec)
+    figure["data"] = [t for t in figure["data"]
+                      if t["name"] not in ("Buy-zone plot floor", "Below buy zone")]
+    return figure
 
 
 def test_mean_reversion_and_soxl_have_separate_pages():
@@ -37,42 +46,44 @@ def test_mean_reversion_and_soxl_have_separate_pages():
 
 
 def test_soxl_and_three_lines_load_without_input():
-    app = AppTest.from_string(SCRIPT).run()
+    app = AppTest.from_string(SCRIPT, default_timeout=15).run()
     assert not app.exception
     assert app.title[0].value == "Mean Reversion"
     assert len(app.get("plotly_chart")) == 1
-    assert len(app.metric) == 9
-    figure = json.loads(app.get("plotly_chart")[0].proto.spec)
+    assert len(app.metric) == 11
+    figure = chart(app)
     assert len(figure["data"]) == 4
     assert figure["data"][0]["name"] == "SOXL · actual"
     assert [trace["name"] for trace in figure["data"][1:]] == [
-        "Upper trend", "Median trend", "Lower trend"]
+        "Upper trend", "Mean line (OLS)", "Lower trend"]
     assert figure["layout"]["height"] >= 500
-    assert next(m for m in app.metric if m.label == "Mean reversion score").value == "Pending new logic"
+    assert next(m for m in app.metric if m.label == "Steel hands score · 0–100").value == "100.0"
+    app.radio[0].set_value("Paper hands").run()
+    assert next(m for m in app.metric if m.label == "Paper hands score · 0–100")
     source = Path("mean_reversion_workspace.py").read_text()
     assert source.index("st.plotly_chart(") < source.index('with st.form(')
 
 
 def test_replacement_comparisons_and_removal_are_separate():
-    app = AppTest.from_string(SCRIPT).run()
+    app = AppTest.from_string(SCRIPT, default_timeout=15).run()
     app.text_input[0].input("AAPL")
     next(b for b in app.button if b.label == "Replace primary").click().run()
     assert not app.exception
-    data = json.loads(app.get("plotly_chart")[0].proto.spec)["data"]
+    data = chart(app)["data"]
     assert len(data) == 4
     assert data[0]["name"] == "AAPL · actual"
     assert not any("SOXL" in trace["name"] for trace in data)
     for symbol in ["MSFT", "KO", "SPY"]:
         app.text_input[1].input(symbol)
         next(b for b in app.button if b.label == "Add comparison").click().run()
-    assert len(json.loads(app.get("plotly_chart")[0].proto.spec)["data"]) == 7
+    assert len(chart(app)["data"]) == 7
     next(b for b in app.button if b.label == "Remove KO").click().run()
-    assert len(json.loads(app.get("plotly_chart")[0].proto.spec)["data"]) == 6
+    assert len(chart(app)["data"]) == 6
     next(b for b in app.button if b.label == "Remove last added").click().run()
-    data = json.loads(app.get("plotly_chart")[0].proto.spec)["data"]
+    data = chart(app)["data"]
     assert len(data) == 5 and data[-1]["name"] == "MSFT · normalized"
     next(b for b in app.button if b.label == "Remove all comparisons").click().run()
-    assert len(json.loads(app.get("plotly_chart")[0].proto.spec)["data"]) == 4
+    assert len(chart(app)["data"]) == 4
     next(b for b in app.button if b.label == "Remove chart").click().run()
     assert not json.loads(app.get("plotly_chart")[0].proto.spec)["data"]
     app.run()
@@ -81,23 +92,35 @@ def test_replacement_comparisons_and_removal_are_separate():
 
 
 def test_bad_replacement_keeps_last_good_chart():
-    app = AppTest.from_string(SCRIPT).run()
+    app = AppTest.from_string(SCRIPT, default_timeout=15).run()
     app.text_input[0].input("BAD")
     next(b for b in app.button if b.label == "Replace primary").click().run()
     assert not app.exception
     assert app.error
-    assert json.loads(app.get("plotly_chart")[0].proto.spec)["data"][0]["name"] == "SOXL · actual"
+    assert chart(app)["data"][0]["name"] == "SOXL · actual"
 
 
 def test_date_changes_all_targets_and_hover_uses_each_hovered_date():
     from datetime import date
-    app = AppTest.from_string(SCRIPT).run()
+    app = AppTest.from_string(SCRIPT, default_timeout=15).run()
     prior = [metric.value for metric in app.metric if metric.label == "Target stock price"]
     app.date_input[0].set_value(date(2028, 11, 18)).run()
     assert not app.exception
     assert prior != [metric.value for metric in app.metric if metric.label == "Target stock price"]
-    figure = json.loads(app.get("plotly_chart")[0].proto.spec)
+    figure = chart(app)
     trend = figure["data"][1]
     assert trend["x"][-1] == "2028-11-18"
     assert trend["customdata"][-1][0] == "2028-11-18"
     assert trend["customdata"][-1][1] != trend["customdata"][-2][1]
+
+
+def test_missing_reference_withholds_scores_without_losing_chart():
+    broken = SCRIPT.replace(
+        "workspace.render_mean_reversion_workspace()",
+        "workspace._cached_reference_analyses = lambda: ({}, ['QQQ'])\n"
+        "workspace.render_mean_reversion_workspace()",
+    )
+    app = AppTest.from_string(broken, default_timeout=15).run()
+    assert not app.exception
+    assert next(m for m in app.metric if m.label == "Steel hands score · 0–100").value == "Unavailable"
+    assert len(chart(app)["data"]) == 4

@@ -1,11 +1,19 @@
 """Chart-first stock research workspace for the Mean Reversion page."""
 
 from datetime import date, timedelta
+import math
 
 import plotly.graph_objects as go
 import streamlit as st
 
-from mean_reversion_channels import CHANNELS, channel_readout, fit_channel, hit_probability
+from mean_reversion_channels import CHANNELS, channel_readout, hit_probability
+from mean_reversion_examples import render_illustrated_rankings
+from mean_reversion_winner import (
+    REFERENCE_SYMBOLS,
+    analyze_winner,
+    fit_winner_channel,
+    normalize_scores,
+)
 from stock_chart_api import load_stock_history, normalize_stock_symbol
 
 _PRIMARY = "mr_workspace_primary"
@@ -15,18 +23,32 @@ _AUTO_INIT = "mr_workspace_auto_initialized"
 _PRIMARY_INPUT = "mr_workspace_primary_input"
 _COMPARE_INPUT = "mr_workspace_compare_input"
 _DATE_INPUT = "mr_workspace_projection_date"
+_SCORE_STYLE = "mr_workspace_score_style"
 _COLORS = {kind: color for kind, _, color in CHANNELS}
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def _cached_stock_history(symbol):
     """Cache full available adjusted daily history."""
-    return load_stock_history(symbol, start_date="1900-01-01")
+    return load_stock_history(symbol, start_date="1900-01-01", tiingo_only=True)
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def _cached_channel(history, end_date):
-    return fit_channel(history, end_date=end_date)
+    return fit_winner_channel(history, end_date=end_date)
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def _cached_reference_analyses():
+    """Load the complete reference set; never normalize against a partial set."""
+    analyses = {}
+    unavailable = []
+    for symbol in REFERENCE_SYMBOLS:
+        try:
+            analyses[symbol] = analyze_winner(_cached_stock_history(symbol))
+        except Exception:
+            unavailable.append(symbol)
+    return analyses, unavailable
 
 
 def _load_history(symbol):
@@ -122,6 +144,36 @@ def _comparison_points(primary, comparison):
 def _make_figure(primary, comparisons, model, readouts):
     fig = go.Figure()
     if primary:
+        # Pin the bottom of the log plot so the shaded buy zone has a stable floor.
+        buy_zone = model.get("lower_buy_zone", []) if model else []
+        positive_values = [
+            float(value) for value in primary["prices"] if value and float(value) > 0
+        ]
+        if model:
+            positive_values += [
+                float(value)
+                for line in model.get("lines", {}).values()
+                for value in line if value and float(value) > 0
+            ]
+        positive_values += [
+            float(value) for value in buy_zone if value and float(value) > 0
+        ]
+        for comparison in comparisons:
+            _, scaled, _ = _comparison_points(primary, comparison)
+            positive_values += [float(value) for value in scaled if value and value > 0]
+        floor = min(positive_values) * .72 if positive_values else None
+        if buy_zone and floor:
+            fig.add_trace(go.Scatter(
+                x=model["line_dates"], y=[floor] * len(model["line_dates"]),
+                mode="lines", line={"width": 0}, hoverinfo="skip",
+                showlegend=False, name="Buy-zone plot floor",
+            ))
+            fig.add_trace(go.Scatter(
+                x=model["line_dates"], y=buy_zone, mode="lines",
+                line={"width": 0}, fill="tonexty",
+                fillcolor="rgba(94, 137, 111, .14)",
+                hoverinfo="skip", showlegend=False, name="Below buy zone",
+            ))
         fig.add_trace(go.Scatter(
             x=primary["dates"], y=primary["prices"], mode="lines",
             name=f"{primary['symbol']} · actual", line={"color": "#283d3a", "width": 2.5},
@@ -139,14 +191,14 @@ def _make_figure(primary, comparisons, model, readouts):
         for kind in ("upper", "median", "lower"):
             fig.add_trace(go.Scatter(
                 x=model["line_dates"], y=model["lines"][kind], mode="lines",
-                name={"upper": "Upper trend", "median": "Median trend", "lower": "Lower trend"}[kind],
+                name={"upper": "Upper trend", "median": "Mean line (OLS)", "lower": "Lower trend"}[kind],
                 line={"color": _COLORS[kind], "width": 2, "dash": "dash" if kind != "median" else "solid"},
                 customdata=custom,
                 hovertemplate=(
                     "%{customdata[0]} · %{fullData.name}: $%{y:,.2f}"
                     "<br>Same-date targets · hit by or before this date:"
                     "<br>Upper %{customdata[1]} · %{customdata[2]}"
-                    "<br>Median %{customdata[3]} · %{customdata[4]}"
+                    "<br>Mean line (OLS) %{customdata[3]} · %{customdata[4]}"
                     "<br>Lower %{customdata[5]} · %{customdata[6]}<extra></extra>"
                 ),
             ))
@@ -172,9 +224,12 @@ def _make_figure(primary, comparisons, model, readouts):
         xaxis={"title": "Date", "showgrid": True, "gridcolor": "rgba(91,111,106,.13)",
                "zeroline": False, "rangeslider": {"visible": False}},
         yaxis={"title": "Price (USD; comparisons rebased)", "type": "log",
-                "tickprefix": "$", "tickformat": ",.2f", "showgrid": True,
-                "showexponent": "none", "minorloglabels": "none",
-               "gridcolor": "rgba(91,111,106,.13)", "zeroline": False},
+                 "tickprefix": "$", "tickformat": ",.2f", "showgrid": True,
+                 "showexponent": "none", "minorloglabels": "none",
+                "gridcolor": "rgba(91,111,106,.13)", "zeroline": False,
+                 **({"range": [math.log10(floor),
+                               math.log10(max(positive_values) * 1.08)]}
+                   if primary and floor and positive_values else {})},
     )
     return fig
 
@@ -197,6 +252,119 @@ def _render_readouts(rows, selected_date):
         "Historical-model estimates are not empirically calibrated. Probability means a "
         "future touch of the date-specific price target, not a touch of a moving trendline."
     )
+
+
+def _render_winner_analysis(primary):
+    """Plain-language mean-reversion analysis and fully-scaled reference scores."""
+    if not primary:
+        return
+    try:
+        tiingo_history = _cached_stock_history(primary["symbol"])
+        analysis = analyze_winner(tiingo_history)
+    except Exception:
+        st.write("Mean-reversion analysis needs adjusted history that is not currently available.")
+        return
+    references, unavailable = _cached_reference_analyses()
+    complete_references = not unavailable and all(
+        symbol in references for symbol in REFERENCE_SYMBOLS
+    )
+    try:
+        scores = normalize_scores(analysis, references) if complete_references else None
+    except ValueError as exc:
+        scores = None
+        st.write(str(exc))
+
+    st.subheader("Mean-reversion read")
+    st.caption(
+        "A direct stock screen: how strongly price returns to its long-run mean, "
+        "and whether that mean has been growing."
+    )
+    style = st.radio(
+        "Score emphasis", ("Steel hands", "Paper hands"),
+        horizontal=True, key=_SCORE_STYLE,
+        help="Both scores remain visible; this choice only changes which is emphasized.",
+    )
+    if unavailable or not complete_references:
+        missing = ", ".join(unavailable or REFERENCE_SYMBOLS)
+        st.write(
+            f"Reference scaling unavailable — missing history for {missing}. "
+            "Scores are withheld rather than normalized against a partial set."
+        )
+
+    verdict = analysis.get("verdict", "NO MEAN YET")
+    winner = bool(analysis.get("winner"))
+    verdict_color = "#527b5d" if winner else "#a25e4b"
+    with st.container(border=True):
+        st.markdown(
+            f"<div style='font-size:11px;letter-spacing:.12em;text-transform:uppercase;"
+            f"color:{verdict_color};font-weight:700'>Verdict</div>"
+            f"<div style='font-size:25px;font-weight:650;color:#293b38;margin:.15rem 0'>"
+            f"{'WINNER' if winner else 'NOT A WINNER'}</div>",
+            unsafe_allow_html=True,
+        )
+        if not winner:
+            reason = verdict.replace(" — not a winner.", "").replace(" — not a winner", "")
+            st.write(reason)
+        if analysis.get("range_tradeable"):
+            st.caption("Range-tradeable: buy only when clearly below the mean.")
+
+        steel = scores.get("steel") if scores is not None else None
+        paper = scores.get("paper") if scores is not None else None
+        prominent = steel if style == "Steel hands" else paper
+        other = paper if style == "Steel hands" else steel
+        other_label = "Paper hands" if style == "Steel hands" else "Steel hands"
+        score_cols = st.columns([1.5, 1])
+        score_cols[0].metric(
+            f"{style} score · 0–100",
+            f"{prominent:.1f}" if prominent is not None else "Unavailable",
+        )
+        score_cols[1].metric(
+            other_label,
+            f"{other:.1f}" if other is not None else "Unavailable",
+        )
+
+        slope_pct = analysis.get("slope_pct")
+        growth = analysis.get("growth")
+        if slope_pct is None and growth is not None:
+            slope_pct = float(growth) * 100
+        slope_text = f"{slope_pct:.2f}% per year" if slope_pct is not None else "Unavailable"
+        pull = analysis.get("pull")
+        pull_label = analysis.get("pull_label")
+        pull_text = f"{pull_label} pull" if pull_label else "Unavailable"
+        years = analysis.get("longest_years")
+        peak_pct = analysis.get("longest_peak_pct")
+        distance = (
+            f"{years:.2f} years, up to {peak_pct:.1f}% away"
+            if years is not None and peak_pct is not None else "Unavailable"
+        )
+        swing = analysis.get("typical_swing_pct")
+        metric_cols = st.columns(3)
+        metric_cols[0].metric("Mean line growth", slope_text)
+        st.write(
+            f"Mean line {'rising' if slope_pct >= 0 else 'declining'} "
+            f"{abs(slope_pct):.2f}% per year."
+        )
+        metric_cols[1].metric("Pull to the mean", pull_text)
+        metric_cols[2].metric("Typical swing", f"{swing:.1f}% from mean" if swing is not None else "Unavailable")
+        st.caption(f"Longest time away from the mean: {distance}.")
+
+        if analysis.get("has_mean"):
+            position = analysis.get("position_pct")
+            percentile = analysis.get("percentile")
+            side = "above" if position is not None and position >= 0 else "below"
+            position_text = (
+                f"{abs(position):.1f}% {side} the mean line"
+                if position is not None else "Position unavailable"
+            )
+            percentile_text = (
+                f"higher than {percentile:.1f}% of its history"
+                if percentile is not None else "historical percentile unavailable"
+            )
+            st.markdown(f"**Today:** {position_text} — {percentile_text}.")
+            if analysis.get("buy_zone"):
+                st.write("Clearly below the mean.")
+            else:
+                st.caption("Not currently in the clearly-below-mean buy zone.")
 
 
 @st.fragment
@@ -264,6 +432,8 @@ def render_mean_reversion_workspace():
         if primary else "No primary chart selected. The default SOXL load runs only once per session."
     )
 
+    _render_winner_analysis(primary)
+
     with st.form("mr_replace_primary_form"):
         a, b = st.columns([5, 1])
         a.text_input("Primary ticker · replaces current primary", key=_PRIMARY_INPUT,
@@ -292,20 +462,43 @@ def render_mean_reversion_workspace():
     if st.session_state.get(_ERROR):
         st.error(st.session_state[_ERROR])
 
-    metrics = st.columns(3)
-    metrics[0].metric("Mean reversion score", "Pending new logic")
-    metrics[1].metric(
-        "Growth / trend · annualized",
-        f"{model['slope_pct']:.2f}%" if model else "—",
-    )
-    metrics[2].metric("Overall score", "Pending new logic")
     if model:
         _render_readouts(rows, selected)
+
+    render_illustrated_rankings()
+
+    if model:
+        with st.expander("Mean-reversion method"):
+            st.write(
+                "Daily adjusted closes are fitted as a straight OLS line in log-price "
+                "over the full history. The mean-line slope is annualized growth. Swing "
+                "size is the standard deviation of log-price deviations from that line."
+            )
+            st.write(
+                "Pull smooths deviations with a 20-trading-day moving average, then "
+                "measures every excursion from one zero-crossing to the next, including "
+                "open excursions at either end of the history. Each excursion is the "
+                "area of absolute distance over time; the longest excursion (L) is an "
+                "area, not a duration in years. Pull is 1 / (1 + L / 8)."
+            )
+            st.write(
+                "Winner rules: at least five years of history, pull of at least 0.5, "
+                "and mean-line growth of at least 5% per year. Winners receive Steel "
+                "Hands and Paper Hands heuristic scores; these are not probabilities. "
+                "Scores are scaled to the fixed SOXL, TQQQ, SOXX, QQQ, and SPY reference "
+                "set, so they are withheld if any reference history is unavailable."
+            )
+            st.write(
+                "Position compares today's deviation with all historical deviations. "
+                "The buy zone begins 0.5 swing units below the mean. A stock with a "
+                "strong pull and a mean declining no faster than 10% per year may be "
+                "range-tradeable, but is not labeled a growth-stock winner."
+            )
         with st.expander("Channel and probability method"):
             st.write(
-                "The three lines use the same log-price channel method as the SOXL page: "
-                "a least-squares slope with median, highest and lowest historical intercepts. "
-                "The upper and lower lines are historical envelopes, not confidence bounds. "
+                "The center line is the full-history OLS mean in log-price. The existing "
+                "upper and lower channel lines remain historical reference lines, not "
+                "confidence bounds. "
                 "Touch probabilities use historical daily log-return drift and volatility "
                 "with a directional first-passage model, including downward targets. "
                 "They concern the fixed price shown for the selected date, not ending "

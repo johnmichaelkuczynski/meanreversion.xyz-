@@ -20,6 +20,7 @@
 - [Market health evidence](market-health-evidence.md) — optional telemetry must not gate saved results or imply an open chart adopted newer background data.
 - [Hypothetical entry slider](hypothetical-entry-slider.md) — chosen price is a hypothetical entry, not a target-hit question; preserve the existing daily indicator.
 - [Mean reversion statistics](mean-reversion-statistics.md) — R/S on log increments; anti-persistence is not proof of profitable price-level reversion.
+- [Winner scoring contract](winner-logic-contract.md) — excursion-area pull replaces crossing counts; preserve supplied formulas and report ranking mismatches without tuning.
 - [Landing chart priority](landing-chart-priority.md) — page 1 is Mean Reversion, with chart above ticker entry; all SOXL/SRH content is on separate page 2.
 - [Price scenario validation](price-scenario-validation.md) — observed entry closes cannot validate same-date counterfactual prices; retrospective holdouts are not prospective trials.
 - [K research integrity](k-research-integrity.md) — reused SOXL history is not a fresh holdout; retain failed and empty tied-rank comparisons rather than tuning them.

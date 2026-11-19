@@ -21,30 +21,9 @@ Keep simulation evidence separate from the user's raw H-based score. A Gaussian 
 
 **How to apply:** Use exact usable sample counts for calibration; do not silently substitute a nearby window. Recalibrate whenever the estimator changes and disclose model assumptions and selection effects.
 
-The log-trend / AR(1) Mean Reversion tool is a strictly independent addition,
-not a replacement for Hurst, K, SOXL signals, hand-drawn channels, or the
-existing projection probabilities. Trend, bands, slope, and position must
-always remain visible, independently of the descriptive verdict.
-
-**Why:** The user replaced the original ADF/half-life reliability gate with
-completed residual excursion cycles and a near-unit-root threshold. These
-are requested descriptive heuristics, not proof of stationarity or profits.
-
-**How to apply:** Keep the two interpretations separate, use adjusted closes
-for the new model, never suppress its trend because of a verdict, and label
-Monte Carlo touches as conditional model estimates rather than empirically
-calibrated success rates. If the AR(1) stationary spread is undefined, show
-observed residual spread with an explicit label instead of hiding the bands.
-
-The user's screening goal requires both repeated returns to trend and a rising,
-ideally steep, trend. Keep the reversion grade distinct from growth and the
-combined score; none is an estimated probability of investment success.
-
-**Why:** A strong reversion grade alone can describe a flat or falling trend,
-which does not satisfy the user's stated goal.
-
-**How to apply:** Preserve both dimensions in summaries and comparisons, and
-do not relabel a 0–100 composite score as a percentage chance of success.
+Page 1 uses the user's newer excursion-area winner logic, not the rejected
+ADF, AR(1), half-life, or crossing-count scores. See winner-logic-contract.md.
+Hurst and K on the separate SOXL page remain independent and unchanged.
 
 Stock removal must be obvious at the Mean Reversion chart itself, including
 removing a chosen ticker, the last addition, and all Mean Reversion charts.
@@ -64,6 +43,6 @@ adding second, third or fourth comparison stocks, and requested parity with
 the SOXL chart's projection display.
 
 **How to apply:** Keep primary and comparison state separate, including removal.
-Reuse the SOXL channel and hit-probability interpretation rather than inventing
-a new one. Do not substitute rejected or invented mean-reversion scores for
-replacement logic the user has said they will supply.
+Preserve the fixed-target hit-probability interpretation. The user's supplied
+winner logic now governs the center mean and scores; retain the other channel
+and comparison controls independently.
