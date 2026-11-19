@@ -20,6 +20,7 @@ _PRIMARY = "mr_workspace_primary"
 _COMPARISONS = "mr_workspace_comparisons"
 _ERROR = "mr_workspace_error"
 _AUTO_INIT = "mr_workspace_auto_initialized"
+_REMOVED = "mr_workspace_chart_removed"
 _PRIMARY_INPUT = "mr_workspace_primary_input"
 _COMPARE_INPUT = "mr_workspace_compare_input"
 _DATE_INPUT = "mr_workspace_projection_date"
@@ -59,6 +60,7 @@ def _replace_primary():
     try:
         history = _load_history(st.session_state.get(_PRIMARY_INPUT, ""))
         st.session_state[_PRIMARY] = history
+        st.session_state[_REMOVED] = False
         st.session_state[_COMPARISONS] = [
             item for item in st.session_state.get(_COMPARISONS, [])
             if item["symbol"] != history["symbol"]
@@ -113,7 +115,23 @@ def _remove_all_comparisons():
 
 def _remove_chart():
     st.session_state[_PRIMARY] = None
+    st.session_state[_REMOVED] = True
     st.session_state[_ERROR] = None
+
+
+def _restore_default():
+    """Load the real SOXL example, including after an intentional removal."""
+    try:
+        history = _load_history("SOXL")
+        st.session_state[_PRIMARY] = history
+        st.session_state[_DATE_INPUT] = date.fromisoformat(
+            history["dates"][-1]
+        ) + timedelta(days=365)
+        st.session_state[_AUTO_INIT] = True
+        st.session_state[_REMOVED] = False
+        st.session_state[_ERROR] = None
+    except Exception:
+        st.session_state[_ERROR] = "SOXL history is temporarily unavailable. Select Show SOXL example to retry."
 
 
 def _price(value):
@@ -373,16 +391,10 @@ def render_mean_reversion_workspace():
     for key, initial in ((_COMPARISONS, []), (_ERROR, None), (_AUTO_INIT, False)):
         if key not in st.session_state:
             st.session_state[key] = initial
-    if not st.session_state[_AUTO_INIT]:
-        st.session_state[_AUTO_INIT] = True
-        try:
-            st.session_state[_PRIMARY] = _load_history("SOXL")
-            st.session_state[_DATE_INPUT] = date.fromisoformat(
-                st.session_state[_PRIMARY]["dates"][-1]
-            ) + timedelta(days=365)
-        except Exception:
-            st.session_state[_PRIMARY] = None
-            st.session_state[_ERROR] = "SOXL history could not be loaded. Enter a ticker below to try another."
+    # A failed first request must not permanently mark an empty chart initialized.
+    # Also recover already-open sessions left empty by the old initialization.
+    if not st.session_state.get(_PRIMARY) and not st.session_state.get(_REMOVED):
+        _restore_default()
 
     primary = st.session_state.get(_PRIMARY)
     model, rows, selected = None, [], None
@@ -429,8 +441,11 @@ def render_mean_reversion_workspace():
                        disabled=not comparisons, key="mr_remove_all_comparisons")
     controls[3].caption(
         f"{primary['symbol']} · adjusted daily close · through {primary.get('through', '—')}"
-        if primary else "No primary chart selected. The default SOXL load runs only once per session."
+        if primary else "No primary chart selected."
     )
+    if not primary:
+        st.button("Show SOXL example", on_click=_restore_default,
+                  key="mr_restore_default", type="primary")
 
     _render_winner_analysis(primary)
 

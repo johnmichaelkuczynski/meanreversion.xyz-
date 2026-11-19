@@ -100,6 +100,46 @@ def test_bad_replacement_keeps_last_good_chart():
     assert chart(app)["data"][0]["name"] == "SOXL · actual"
 
 
+def test_failed_initial_load_retries_and_recovers_existing_blank_sessions():
+    flaky = SCRIPT.replace(
+        "workspace.render_mean_reversion_workspace()",
+        """
+original_load = workspace._load_history
+def load_with_one_failure(symbol):
+    attempts = workspace.st.session_state.get("load_attempts", 0) + 1
+    workspace.st.session_state["load_attempts"] = attempts
+    if attempts == 1:
+        raise RuntimeError("Temporary provider failure")
+    return original_load(symbol)
+workspace._load_history = load_with_one_failure
+workspace.render_mean_reversion_workspace()
+workspace._load_history = original_load
+""",
+    )
+    app = AppTest.from_string(flaky, default_timeout=15).run()
+    assert not app.exception
+    assert not chart(app)["data"]
+    assert app.session_state["mr_workspace_auto_initialized"] is False
+    # Simulate the stale initialized flag retained by the previous version.
+    app.session_state["mr_workspace_auto_initialized"] = True
+    app.run()
+    assert not app.exception
+    assert chart(app)["data"][0]["name"] == "SOXL · actual"
+    assert len(chart(app)["data"]) == 4
+    assert not app.error
+
+
+def test_removed_chart_can_restore_the_soxl_example():
+    app = AppTest.from_string(SCRIPT, default_timeout=15).run()
+    next(b for b in app.button if b.label == "Remove chart").click().run()
+    assert not chart(app)["data"]
+    next(b for b in app.button if b.label == "Show SOXL example").click().run()
+    assert not app.exception
+    assert chart(app)["data"][0]["name"] == "SOXL · actual"
+    assert len(chart(app)["data"]) == 4
+    assert next(m for m in app.metric if m.label == "Steel hands score · 0–100")
+
+
 def test_date_changes_all_targets_and_hover_uses_each_hovered_date():
     from datetime import date
     app = AppTest.from_string(SCRIPT, default_timeout=15).run()

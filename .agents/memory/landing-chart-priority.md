@@ -15,6 +15,15 @@ SOXL, superseding both the SOXL-first order and the combined-page layout.
 signal on the Mean Reversion page. Within the SOXL page, preserve
 the daily signal followed by its actual interactive drawing/projection chart.
 
+Page 1 must open with SOXL already plotted, its three trend lines and scores
+visible, before the visitor enters a ticker. Entering another ticker replaces SOXL.
+
+**Why:** The user repeated that a blank starting chart gives visitors no idea
+what the function does; SOXL is the required illustrative default.
+
+**How to apply:** Do not treat a failed initial history request as a completed
+initialization. Preserve deliberate removal, but allow the SOXL example to be restored.
+
 Chart controls must start expanded and readable, with the header fully below the incline bar. Do not auto-shrink the panel to the small portion of the iframe visible when it first enters the viewport.
 
 **Why:** The user rejected the clipped header and compressed initial panel as unrecognizable. Allow deliberate user resizing/collapse, but not automatic miniature controls.
