@@ -23,7 +23,7 @@ def normalize_stock_symbol(value):
     return symbol
 
 
-def load_stock_history(symbol):
+def load_stock_history(symbol, *, start_date="2000-01-01"):
     import os
     from datetime import date
     import pandas as pd
@@ -38,7 +38,7 @@ def load_stock_history(symbol):
         code = re.sub(r"\.US$", "", symbol).replace(".", "-")
         response = requests.get(
             f"https://api.tiingo.com/tiingo/daily/{code}/prices",
-            params={"startDate": "2000-01-01", "endDate": date.today().isoformat(),
+            params={"startDate": start_date, "endDate": date.today().isoformat(),
                     "resampleFreq": "daily"},
             headers={"Authorization": "Token " + os.environ["TIINGO_API_KEY"].strip()},
             timeout=30,

@@ -726,3 +726,17 @@ mtime_ms = 1795106995754
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:b0d92c61-69e9-4427-b00c-62f99328260c/bd81ede4-930a-4bfc-b5f4-444873cc946e/cd8be2ce-9ef9-414c-8bf7-b6e3ae1685bf"
 storage_version_token = "1795107090718201"
 content_type = "text/csv"
+
+[[outputs]]
+id = "7i-Dhyp8tipd0eUs30n81"
+uri = "file://generated-artifacts/mean-reversion-default-soxl.jpg"
+type = "image"
+title = "Mean Reversion: default SOXL chart and date probabilities"
+description = "Verified running page with three automatic channels, separate replacement and comparison controls, and red/gray/green date-based touch probabilities. Reversion and overall scores remain explicitly pending replacement logic."
+logical_id = "a5ee285c-32af-47fd-af87-e8daa69efa1c"
+content_hash = "sha256:daad9071b0b9dd59b9c1840b46cf55e77351943bf19440f2b017dfcd04ae6ed0"
+size = 151038
+mtime_ms = 1795116597258
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:b0d92c61-69e9-4427-b00c-62f99328260c/a5ee285c-32af-47fd-af87-e8daa69efa1c/b5c3e6bb-7f2a-48cd-8767-0b7324832469"
+storage_version_token = "1795116613529197"
+content_type = "image/jpeg"

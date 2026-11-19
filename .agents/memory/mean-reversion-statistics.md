@@ -54,3 +54,16 @@ controls and explicitly asked how to get rid of unwanted chart additions.
 
 **How to apply:** Keep immediate, clearly named removal actions beside the chart;
 do not rely on controls elsewhere on the page or alter other chart features.
+
+Page 1 starts with SOXL already analyzed. The primary ticker entry replaces
+the primary stock; a separate comparison panel adds other stocks. Every primary
+stock gets three automatic channels and the same-date tricolor touch readout.
+
+**Why:** The user explicitly distinguished switching the analyzed stock from
+adding second, third or fourth comparison stocks, and requested parity with
+the SOXL chart's projection display.
+
+**How to apply:** Keep primary and comparison state separate, including removal.
+Reuse the SOXL channel and hit-probability interpretation rather than inventing
+a new one. Do not substitute rejected or invented mean-reversion scores for
+replacement logic the user has said they will supply.

@@ -8,9 +8,15 @@ from streamlit.testing.v1 import AppTest
 
 SCRIPT = """
 import mean_reversion_workspace as workspace
+import pandas as pd
+import numpy as np
 def fixture_history(symbol):
-    return {"symbol": symbol, "dates": ["2026-11-17", "2026-11-18"],
-            "prices": [100, 102], "through": "2026-11-18", "source": "test fixture"}
+    if symbol == "BAD":
+        raise ValueError("No daily price history was found for BAD.")
+    dates = pd.bdate_range(end="2026-11-18", periods=120)
+    values = np.exp(4 + .002*np.arange(120) + .1*np.sin(np.arange(120)/10))
+    return {"symbol": symbol, "dates": dates.strftime("%Y-%m-%d").tolist(),
+            "prices": values.tolist(), "through": "2026-11-18", "source": "test fixture"}
 workspace._cached_stock_history = fixture_history
 workspace.render_mean_reversion_workspace()
 """
@@ -30,35 +36,68 @@ def test_mean_reversion_and_soxl_have_separate_pages():
     assert 'with_name("main.py")' in Path("streamlit_backend.py").read_text()
 
 
-def test_blank_chart_and_scores_exist_before_input():
+def test_soxl_and_three_lines_load_without_input():
     app = AppTest.from_string(SCRIPT).run()
     assert not app.exception
     assert app.title[0].value == "Mean Reversion"
     assert len(app.get("plotly_chart")) == 1
-    assert len(app.metric) == 3
+    assert len(app.metric) == 9
     figure = json.loads(app.get("plotly_chart")[0].proto.spec)
-    assert not figure["data"]
+    assert len(figure["data"]) == 4
+    assert figure["data"][0]["name"] == "SOXL · actual"
+    assert [trace["name"] for trace in figure["data"][1:]] == [
+        "Upper trend", "Median trend", "Lower trend"]
     assert figure["layout"]["height"] >= 500
+    assert next(m for m in app.metric if m.label == "Mean reversion score").value == "Pending new logic"
     source = Path("mean_reversion_workspace.py").read_text()
     assert source.index("st.plotly_chart(") < source.index('with st.form(')
 
 
-def test_add_and_remove_update_same_chart_immediately():
+def test_replacement_comparisons_and_removal_are_separate():
     app = AppTest.from_string(SCRIPT).run()
     app.text_input[0].input("AAPL")
-    app.button[0].click().run()
+    next(b for b in app.button if b.label == "Replace primary").click().run()
     assert not app.exception
-    assert len(json.loads(app.get("plotly_chart")[0].proto.spec)["data"]) == 1
-    app.text_input[0].input("MSFT")
-    next(b for b in app.button if b.label == "Add stock").click().run()
-    assert len(json.loads(app.get("plotly_chart")[0].proto.spec)["data"]) == 2
+    data = json.loads(app.get("plotly_chart")[0].proto.spec)["data"]
+    assert len(data) == 4
+    assert data[0]["name"] == "AAPL · actual"
+    assert not any("SOXL" in trace["name"] for trace in data)
+    for symbol in ["MSFT", "KO", "SPY"]:
+        app.text_input[1].input(symbol)
+        next(b for b in app.button if b.label == "Add comparison").click().run()
+    assert len(json.loads(app.get("plotly_chart")[0].proto.spec)["data"]) == 7
+    next(b for b in app.button if b.label == "Remove KO").click().run()
+    assert len(json.loads(app.get("plotly_chart")[0].proto.spec)["data"]) == 6
     next(b for b in app.button if b.label == "Remove last added").click().run()
     data = json.loads(app.get("plotly_chart")[0].proto.spec)["data"]
-    assert [trace["name"] for trace in data] == ["AAPL"]
-    next(b for b in app.button if b.label == "Remove AAPL").click().run()
+    assert len(data) == 5 and data[-1]["name"] == "MSFT · normalized"
+    next(b for b in app.button if b.label == "Remove all comparisons").click().run()
+    assert len(json.loads(app.get("plotly_chart")[0].proto.spec)["data"]) == 4
+    next(b for b in app.button if b.label == "Remove chart").click().run()
     assert not json.loads(app.get("plotly_chart")[0].proto.spec)["data"]
-    app.text_input[0].input("SPY")
-    next(b for b in app.button if b.label == "Add stock").click().run()
-    next(b for b in app.button if b.label == "Remove all charts").click().run()
+    app.run()
     assert not json.loads(app.get("plotly_chart")[0].proto.spec)["data"]
     assert not app.exception
+
+
+def test_bad_replacement_keeps_last_good_chart():
+    app = AppTest.from_string(SCRIPT).run()
+    app.text_input[0].input("BAD")
+    next(b for b in app.button if b.label == "Replace primary").click().run()
+    assert not app.exception
+    assert app.error
+    assert json.loads(app.get("plotly_chart")[0].proto.spec)["data"][0]["name"] == "SOXL · actual"
+
+
+def test_date_changes_all_targets_and_hover_uses_each_hovered_date():
+    from datetime import date
+    app = AppTest.from_string(SCRIPT).run()
+    prior = [metric.value for metric in app.metric if metric.label == "Target stock price"]
+    app.date_input[0].set_value(date(2028, 11, 18)).run()
+    assert not app.exception
+    assert prior != [metric.value for metric in app.metric if metric.label == "Target stock price"]
+    figure = json.loads(app.get("plotly_chart")[0].proto.spec)
+    trend = figure["data"][1]
+    assert trend["x"][-1] == "2028-11-18"
+    assert trend["customdata"][-1][0] == "2028-11-18"
+    assert trend["customdata"][-1][1] != trend["customdata"][-2][1]
