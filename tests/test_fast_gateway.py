@@ -65,6 +65,19 @@ class GatewayTests(AsyncHTTPTestCase):
         self.assertEqual(result.code, 200)
         self.assertIn(b"ready", result.body)
 
+    def test_landing_startup_is_mean_reversion_without_soxl_signals_or_database(self):
+        with patch.object(fast_gateway, "ready", False), \
+                patch("market_state_store.load_state") as load:
+            result = self.fetch("/")
+        self.assertEqual(result.code, 200)
+        self.assertIn(b"<h1>Mean Reversion</h1>", result.body)
+        self.assertIn(b"1 \xc2\xb7 Mean Reversion", result.body)
+        self.assertIn(b'href="/soxl"', result.body)
+        self.assertIn(b"Loading the SOXL Mean Reversion chart", result.body)
+        self.assertNotIn(b"SOXL Daily Signal", result.body)
+        self.assertNotIn(b"SOXL Market Snapshot", result.body)
+        load.assert_not_called()
+
     def test_cached_fallback_rechecks_database_and_labels_retained_results(self):
         from datetime import datetime, timezone
         import market_state_store as store
@@ -79,8 +92,8 @@ class GatewayTests(AsyncHTTPTestCase):
                     store.StateStoreError("OperationalError"),
                     store.StateStoreError("OperationalError"),
                 ]) as execute:
-            first = self.fetch("/")
-            second = self.fetch("/")
+            first = self.fetch("/soxl")
+            second = self.fetch("/soxl")
         self.assertIn(b"Current timestamped observation", first.body)
         self.assertIn(b"Retained saved results", second.body)
         self.assertIn(b"Database read: Failed", second.body)
@@ -95,7 +108,7 @@ class GatewayTests(AsyncHTTPTestCase):
         with patch.object(fast_gateway, "ready", False), \
                 patch.object(fast_gateway, "state", old), \
                 patch.object(store, "_execute", side_effect=[(new,), None]):
-            page = self.fetch("/").body.decode()
+            page = self.fetch("/soxl").body.decode()
         self.assertIn("Saved results computed at " + new["computed_at"], page)
         self.assertIn("Displayed analysis snapshot: " + new["computed_at"], page)
 

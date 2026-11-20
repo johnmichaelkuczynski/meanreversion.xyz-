@@ -18,6 +18,21 @@ state = None
 ready = False
 
 
+def mean_reversion_startup_page():
+    """Keep page one recognizable while the interactive server starts."""
+    return """<!doctype html><html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mean Reversion</title>
+<style>body{margin:0;background:#f0f4fa;color:#1a1a2e;font:16px system-ui}
+nav{padding:18px;display:flex;gap:24px}a{color:inherit}main{margin:55px auto;max-width:1120px;padding:24px}
+.chart{height:480px;background:#fff;border:1px solid #dce1e8;display:grid;place-items:center}
+</style></head><body><nav><strong>1 · Mean Reversion</strong><a href="/soxl">2 · SOXL</a></nav>
+<main><h1>Mean Reversion</h1><p>SOXL example · price history, three trend lines, and scores.</p>
+<div class="chart" role="status">Loading the SOXL Mean Reversion chart…</div>
+</main><script>setInterval(async()=>{try{const r=await fetch('/_gateway/ready',{cache:'no-store'});
+if(r.ok)location.reload()}catch(e){}},750)</script></body></html>"""
+
+
 def saved_page(value):
     if not value:
         content = "<h1>SOXL Analysis</h1><p>Saved market data is temporarily unavailable. Background-update health is shown below.</p>"
@@ -88,6 +103,11 @@ class Gateway(tornado.web.RequestHandler):
             if self.request.connection.stream.closed():
                 return
         if self.request.path == "/" and not ready:
+            self.set_header("Content-Type", "text/html; charset=utf-8")
+            self.set_header("Cache-Control", "no-store")
+            self.finish(mean_reversion_startup_page())
+            return
+        if self.request.path in ("/soxl", "/soxl/") and not ready:
             # Database access has a bounded budget; never wait for a provider.
             global state
             # Recheck on every fallback request, even when a snapshot is cached.

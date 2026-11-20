@@ -30,3 +30,4 @@
 - [ARM64 Python wheels](arm64-python-wheels.md) — cross-platform pip builds need several compatible manylinux tags, not only the newest tag.
 - [Schwab market-data ownership](schwab-market-data.md) — use the owner's keys directly for Coolify portability; registered OAuth callback is on soxl.ai.
 - [Tiingo price feed](tiingo-price-feed.md) — active SOXL quotes use Tiingo; valid timestamped reference prices may have null entitlement-only trade fields.
+- [Preview port forwarding](preview-port-forwarding.md) — link to the HTTPS dev hostname without :5000; internal port 5000 is forwarded to the default web port.

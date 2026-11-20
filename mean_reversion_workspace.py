@@ -388,13 +388,16 @@ def _render_winner_analysis(primary):
 @st.fragment
 def render_mean_reversion_workspace():
     """Render the independent Mean Reversion stock-analysis workspace."""
+    st.title("Mean Reversion")
+    st.caption("Price history, long-run channel, and date-specific target estimates.")
     for key, initial in ((_COMPARISONS, []), (_ERROR, None), (_AUTO_INIT, False)):
         if key not in st.session_state:
             st.session_state[key] = initial
     # A failed first request must not permanently mark an empty chart initialized.
     # Also recover already-open sessions left empty by the old initialization.
     if not st.session_state.get(_PRIMARY) and not st.session_state.get(_REMOVED):
-        _restore_default()
+        with st.spinner("Loading the SOXL example…"):
+            _restore_default()
 
     primary = st.session_state.get(_PRIMARY)
     model, rows, selected = None, [], None
@@ -413,8 +416,6 @@ def render_mean_reversion_workspace():
         selected = value
         rows = channel_readout(model, selected)
 
-    st.title("Mean Reversion")
-    st.caption("Price history, long-run channel, and date-specific target estimates.")
     if primary:
         st.date_input(
             "Projection and readout date",
