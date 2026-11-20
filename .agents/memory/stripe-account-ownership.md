@@ -19,6 +19,26 @@ to change the account or catalog. If required configuration is missing, report t
 blocker instead of proposing to create it. App-initiated checkout/payment
 operations must use the owner's credentials, never a managed connection.
 
+Use only the exact Stripe price supplied by the user for this app. Do not
+substitute other catalog prices or offer alternatives unless asked.
+
+**Why:** The user explicitly rejected alternative prices and requires the
+price ID they provided.
+
+**How to apply:** Validate that configured price without changing Stripe
+products or prices. A lookup failure is a configuration blocker, not permission
+to select another offer.
+
+Keep workspace and external Coolify payment verification separate.
+
+**Why:** The user configures Coolify's runtime environment separately. A
+workspace authentication or price-lookup failure does not establish what the
+published server is using.
+
+**How to apply:** Name the environment in every readiness report. Check that
+the access-wall code reached GitHub and the published app before attributing
+production behavior to credentials or requesting another replacement key.
+
 Put sign-in/sign-out and Buy at the top of the page in normal document flow,
 not in a fixed, floating, or sticky bar.
 
