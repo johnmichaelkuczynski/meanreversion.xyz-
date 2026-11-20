@@ -124,6 +124,7 @@
   var expanded = false;
   var collapsed = false;
   var floating = false;
+  var manualSize = false;
   var activeDate = "";
   var identityKey = "";
   var panelPosition = { x: 16, y: 24 };
@@ -158,6 +159,7 @@
       var rect = panel.getBoundingClientRect();
       var data = {
         floating: floating,
+        manualSize: manualSize,
         x: panelPosition.x,
         y: panelPosition.y,
         width: Math.round(rect.width || panel.offsetWidth || 420),
@@ -177,6 +179,7 @@
   var persisted = readStorage();
   if (persisted) {
     floating = Boolean(persisted.floating);
+    manualSize = Boolean(persisted.manualSize);
     panelPosition = {
       x: Number.isFinite(Number(persisted.x)) ? Number(persisted.x) : 16,
       y: Number.isFinite(Number(persisted.y)) ? Number(persisted.y) : 24
@@ -189,9 +192,11 @@
         height: Number(persisted.normalHeight)
       };
     }
-    if (persisted.dockWidth) panel.style.width = String(persisted.dockWidth);
-    if (Number(persisted.width) > 0) panel.style.width = Math.round(Number(persisted.width)) + "px";
-    if (Number(persisted.height) > 0) panel.style.height = Math.round(Number(persisted.height)) + "px";
+    if (manualSize || floating || expanded) {
+      if (persisted.dockWidth) panel.style.width = String(persisted.dockWidth);
+      if (Number(persisted.width) > 0) panel.style.width = Math.round(Number(persisted.width)) + "px";
+      if (Number(persisted.height) > 0) panel.style.height = Math.round(Number(persisted.height)) + "px";
+    }
   }
 
   function setFrameHeight() {
@@ -325,7 +330,7 @@
       panel.style.left = "";
       panel.style.top = "";
       panel.style.right = "";
-      panel.style.height = panel.style.height || "440px";
+      panel.style.height = !manualSize && !expanded ? "auto" : panel.style.height || "auto";
       panel.style.maxHeight = "";
       panel.style.width = panel.style.width || "";
     }
@@ -437,16 +442,20 @@
     }
     floating = Boolean(nextFloating);
     if (!floating) {
+      manualSize = false;
       panelPosition = { x: 0, y: 0 };
       panel.style.left = "";
       panel.style.top = "";
       panel.style.right = "";
+      panel.style.height = "auto";
+      panel.style.width = "";
     }
     applyVisualState();
   }
 
   function resizePanel(width, height, x, y) {
     if (collapsed) return;
+    manualSize = true;
     var bounds = stageBounds();
     var size = panelDimensions(width, height, false);
     if (floating) {

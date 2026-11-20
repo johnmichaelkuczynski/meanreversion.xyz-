@@ -67,6 +67,11 @@ They again rejected a panel covering the chart and repeated that it must be
 reachable when the pointer moves from a line to its controls. Do not cover the
 chart by default. Make move, shrink, stretch, and collapse actions obvious and
 usable in a narrow embedded preview as well as a wide browser.
+Fit the docked readout to its contents rather than leaving a large empty black
+rectangle beneath its rows. Extra panel area should result only from deliberate
+user stretching.
+
+**Why:** The user explicitly rejected the panel's dead empty black space.
 
 Chart controls must start expanded and readable, with the header fully below the incline bar. Do not auto-shrink the panel to the small portion of the iframe visible when it first enters the viewport.
 

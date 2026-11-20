@@ -82,8 +82,8 @@ def test_soxl_and_three_lines_load_without_input():
     app.radio[0].set_value("Paper hands").run()
     assert next(m for m in app.metric if m.label == "Paper hands score · 0–100")
     source = Path("mean_reversion_workspace.py").read_text()
-    assert source.index('with st.form("mr_replace_primary_top_form")') < source.index("render_channel_chart(")
-    assert source.index("render_channel_chart(") < source.index('with st.form("mr_replace_primary_form")')
+    assert source.index('key="mr_replace_primary_top_form"') < source.index("render_channel_chart(")
+    assert source.index("render_channel_chart(") < source.index('key="mr_replace_primary_form"')
 
 
 def test_replacement_comparisons_and_removal_are_separate():
@@ -143,8 +143,27 @@ def test_both_ticker_forms_replace_the_same_chart():
         assert not app.exception
         assert chart(app)["data"][0]["name"] == f"{symbol} · actual"
         assert f"TICKER: {symbol}" in top_facts(app)
-        assert app.text_input(input_key).value == ""
+        assert app.text_input(input_key).value == symbol
         assert len(chart(app)["data"]) == 4
+
+
+def test_committing_either_ticker_field_applies_without_a_submit_click():
+    app = AppTest.from_string(SCRIPT, default_timeout=45).run()
+    for key, symbol in [
+        ("mr_workspace_top_primary_input", "AAPL"),
+        ("mr_workspace_primary_input", "MSFT"),
+    ]:
+        app.text_input(key).input(symbol).run()
+        assert not app.exception
+        assert chart(app)["data"][0]["name"] == f"{symbol} · actual"
+        assert f"TICKER: {symbol}" in top_facts(app)
+        assert app.text_input(key).value == symbol
+        # Clicking after the Enter/blur commit is safe and does not erase input.
+        button = "mr_replace_primary_top" if key.endswith("top_primary_input") else "mr_replace_primary_bottom"
+        app.button(button).click().run()
+        assert not app.exception
+        assert chart(app)["data"][0]["name"] == f"{symbol} · actual"
+        assert not any("Could not load" in m.value for m in app.markdown)
 
 
 def test_failed_initial_load_retries_and_recovers_existing_blank_sessions():

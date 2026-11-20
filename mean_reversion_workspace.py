@@ -67,7 +67,15 @@ def _replacement_error(input_key, reason):
 
 def _replace_primary(input_key=_PRIMARY_INPUT):
     try:
-        history = _load_history(st.session_state.get(input_key, ""))
+        requested = normalize_stock_symbol(st.session_state.get(input_key, ""))
+        requested = "AAPL" if requested == "APPL" else requested
+        current = st.session_state.get(_PRIMARY)
+        # A text commit followed by a button click must not load twice or
+        # replace a successful result with an empty-field error.
+        if current and current["symbol"] == requested and not st.session_state.get(_ERROR):
+            st.session_state[input_key] = requested
+            return
+        history = _load_history(requested)
         st.session_state[_PRIMARY] = history
         st.session_state[_REMOVED] = False
         st.session_state[_COMPARISONS] = [
@@ -78,11 +86,17 @@ def _replace_primary(input_key=_PRIMARY_INPUT):
         st.session_state[_DATE_INPUT] = last + timedelta(days=365)
         st.session_state[POSITION_DATE] = last
         st.session_state[_ERROR] = None
-        st.session_state[input_key] = ""
+        st.session_state[input_key] = history["symbol"]
     except ValueError as exc:
         st.session_state[_ERROR] = _replacement_error(input_key, str(exc))
     except Exception:
         st.session_state[_ERROR] = _replacement_error(input_key, "Price history is unavailable.")
+
+
+def _commit_primary_input(input_key):
+    """Apply Enter/blur directly, without a form's separate submit state."""
+    if str(st.session_state.get(input_key, "")).strip():
+        _replace_primary(input_key)
 
 
 def _add_comparison():
@@ -319,7 +333,6 @@ def _render_winner_analysis(primary, reading):
     render_score_details(analysis, scores, _SCORE_STYLE, primary)
 
 
-@st.fragment
 def render_mean_reversion_workspace():
     """Render the independent Mean Reversion stock-analysis workspace."""
     st.markdown(
@@ -333,12 +346,13 @@ def render_mean_reversion_workspace():
         """,
         unsafe_allow_html=True,
     )
-    with st.form("mr_replace_primary_top_form"):
+    with st.container(border=True, key="mr_replace_primary_top_form"):
         a, b = st.columns([5, 1])
         a.text_input("Enter stock ticker", key=_TOP_PRIMARY_INPUT,
-                     placeholder="SOXL, AAPL, or another ticker")
+                     placeholder="SOXL, AAPL, or another ticker",
+                     on_change=_commit_primary_input, args=(_TOP_PRIMARY_INPUT,))
         b.write("")
-        st.form_submit_button("Replace primary", type="primary",
+        st.button("Replace primary", type="primary", key="mr_replace_primary_top",
                               use_container_width=True, on_click=_replace_primary,
                               args=(_TOP_PRIMARY_INPUT,))
     for key, initial in ((_COMPARISONS, []), (_ERROR, None), (_AUTO_INIT, False)):
@@ -424,12 +438,13 @@ def render_mean_reversion_workspace():
 
     _render_winner_analysis(primary, reading)
 
-    with st.form("mr_replace_primary_form"):
+    with st.container(border=True, key="mr_replace_primary_form"):
         a, b = st.columns([5, 1])
         a.text_input("Primary ticker · replaces current primary", key=_PRIMARY_INPUT,
-                     placeholder="SOXL, AAPL, or another ticker")
+                     placeholder="SOXL, AAPL, or another ticker",
+                     on_change=_commit_primary_input, args=(_PRIMARY_INPUT,))
         b.write("")
-        st.form_submit_button("Replace primary", type="primary",
+        st.button("Replace primary", type="primary", key="mr_replace_primary_bottom",
                               use_container_width=True, on_click=_replace_primary)
     with st.container(border=True):
         st.subheader("Compare stocks")
