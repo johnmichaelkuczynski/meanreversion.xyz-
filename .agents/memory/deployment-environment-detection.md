@@ -15,7 +15,8 @@ Google login requires verification of the actual Google authorization handoff,
 not just the development bypass or mocked native-login calls.
 
 **Why:** Google rejected the published app's callback even while development
-access and local authentication tests passed.
+access and local authentication tests passed. The user confirmed real published
+Google login worked once Google accepted the exact native callback.
 
 **How to apply:** Google must authorize the app's exact HTTPS origin plus
 `/oauth2callback` on the same client whose credentials the server uses.
