@@ -22,7 +22,7 @@ class BillingError(RuntimeError):
 
 
 def stripe_client():
-    key = os.environ.get("STRIPE_SECRET_KEY", "")
+    key = os.environ.get("STRIPE_SECRET_KEY", "").strip()
     if not key:
         raise BillingError("STRIPE_SECRET_KEY is missing from the server configuration.")
     try:
@@ -32,7 +32,7 @@ def stripe_client():
 
 
 def configured_price_id():
-    price_id = os.environ.get("STRIPE_PRICE_ID", "")
+    price_id = os.environ.get("STRIPE_PRICE_ID", "").strip()
     if not price_id.startswith("price_"):
         raise BillingError("STRIPE_PRICE_ID must identify an existing price in your Stripe account.")
     return price_id
