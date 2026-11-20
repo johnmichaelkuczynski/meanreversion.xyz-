@@ -1,44 +1,45 @@
 from datetime import date
-import math
-
+import pytest
 from mean_reversion_readout import dated_position, summary_lines
+from mean_reversion_winner import analyze_winner
+from test_mean_reversion_winner import history
 
 
-def analysis(**changes):
-    value = {"has_mean": True, "pull": .8, "pull_label": "Strong",
-             "slope": .1, "slope_pct": math.expm1(.1) * 100,
-             "intercept": math.log(100), "origin": "2020-01-01"}
-    return {**value, **changes}
+def test_dated_position_uses_that_days_fit_not_the_latest_fit():
+    h = history()
+    a = analyze_winner(h)
+    selected = date.fromisoformat(a["trend_dates"][200])
+    day, gap, percentile = dated_position(h, a, selected)
+    assert day == selected.isoformat()
+    assert gap == pytest.approx(a["historical_gaps"][200]*100)
+    assert 0 <= percentile <= 100
+    with pytest.raises(ValueError):
+        dated_position(h, a, date.fromisoformat(h["dates"][0]))
 
 
-def test_dated_position_uses_actual_close_and_same_date_mean():
-    history = {"dates": ["2020-01-01", "2020-01-03"], "prices": [80, 120]}
-    day, value = dated_position(history, analysis(), date(2020, 1, 4))
-    assert day == "2020-01-03"
-    expected = (120 / (100 * math.exp(.1 * 2 / 365.25)) - 1) * 100
-    assert abs(value - expected) < 1e-10
-    assert dated_position(history, analysis(), date(2020, 1, 1))[1] < 0
+def test_key_facts_and_dip_are_separate_one_line_each():
+    h = history()
+    a = analyze_winner(h)
+    position = dated_position(h, a, date.fromisoformat(h["dates"][-1]))
+    facts = dict(summary_lines(a, a["scores"], position))
+    for key in ("Mean Reversion Score", "Closeness", "Recovery score",
+                "Median annualized trend slope", "Positive year-end slopes",
+                "Steel hands score", "Paper hands score", "Deep-dip flag"):
+        assert key in facts
+    assert "\n" not in "".join(facts.values())
+    a["winner"] = False
+    a["deep_dip"] = True
+    assert dict(summary_lines(a, a["scores"], position))["Deep-dip flag"] == "YES"
 
 
-def test_separate_growth_and_reversion_facts_and_explicit_missing_scores():
-    lines = dict(summary_lines(analysis(pull=.2, pull_label="Weak"), None, ("2026-11-19", -25)))
-    assert lines["Mean reverting"] == "No — weak pull"
-    assert lines["Mean trends up"] == "Yes"
-    assert lines["Position on 2026-11-19"] == "25.0% BELOW the mean trend line"
-    assert "Unavailable" in lines["Mean reversion + growth score · Steel hands"]
-    assert "\n" not in "".join(lines.values())
+def test_insufficient_recovery_uses_closeness_not_missing_or_zero_score():
+    h = history(width=.001)
+    a = analyze_winner(h)
+    facts = dict(summary_lines(a, a["scores"], dated_position(h, a, date.fromisoformat(h["dates"][-1]))))
+    assert facts["Recovery score"] == "Insufficient recovery history"
+    assert a["mean_reversion_score"] == 100
 
 
-def test_insufficient_history_does_not_claim_a_mean_or_direction():
-    lines = dict(summary_lines(analysis(has_mean=False), {"steel": 0, "paper": 0}, None))
-    assert lines["Mean reverting"].startswith("Not established")
-    assert lines["Mean trends up"] == "Not established"
-    assert lines["Mean trend growth"] == "Not established"
-    assert "no established mean" in lines["Position"]
-
-
-def test_flat_or_declining_mean_is_not_reported_as_rising():
-    for slope in (0, -.1):
-        lines = dict(summary_lines(analysis(slope=slope), {"steel": 0, "paper": 0}, ("2026-11-19", 10)))
-        assert lines["Mean trends up"] == "No"
-        assert lines["Position on 2026-11-19"] == "10.0% ABOVE the mean trend line"
+def test_insufficient_trend_history_is_explicit():
+    a = analyze_winner(history(years=4))
+    assert "five preceding years" in dict(summary_lines(a, a["scores"], None))["Trend"]

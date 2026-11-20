@@ -768,3 +768,31 @@ mtime_ms = 1795120254610
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:b0d92c61-69e9-4427-b00c-62f99328260c/1d8a5374-96dc-41fe-8e00-c279e111da67/cc488e8f-df04-49d3-b792-ff1a92b35d16"
 storage_version_token = "1795120299691797"
 content_type = "image/jpeg"
+
+[[outputs]]
+id = "zH7jAWWi8F7ZN9uXo0hqR"
+uri = "file://generated-artifacts/mean-reversion-rolling-validation.txt"
+type = "text"
+title = "Mean Reversion — full validation report"
+description = "All 13 anonymous schematic results, two failed expectations, and full component results for seven securities through November 19, 2026."
+logical_id = "2ce35295-2b06-4625-be75-fc561314958c"
+content_hash = "sha256:7d5848191fe0187dbdf88fb19f169954f789cc644c37d0637fc6c56ce749555a"
+size = 15252
+mtime_ms = 1795141327605
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:b0d92c61-69e9-4427-b00c-62f99328260c/2ce35295-2b06-4625-be75-fc561314958c/468dd268-b620-45f6-8d4c-f2ab18e9f92b"
+storage_version_token = "1795141395013994"
+content_type = "text/plain"
+
+[[outputs]]
+id = "L27ysWiwJj9cmfqLKbvQ7"
+uri = "file://generated-artifacts/mean-reversion-rolling-validation.csv"
+type = "table"
+title = "Mean Reversion — component scores"
+description = "Closeness, recovery, trend growth, positive-year share, ranking components, scores, verdicts and deep-dip flags for all seven requested securities."
+logical_id = "a54ff20e-be69-41f6-85d4-029df4e6fa7e"
+content_hash = "sha256:556daa32ed18c91709eb98f8f4f2ce1452521477e5a24e0abc9d6f47b54b7180"
+size = 2857
+mtime_ms = 1795141327603
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:b0d92c61-69e9-4427-b00c-62f99328260c/a54ff20e-be69-41f6-85d4-029df4e6fa7e/11d4a9ff-360a-490a-a7fc-1e9751644020"
+storage_version_token = "1795141395717472"
+content_type = "text/csv"

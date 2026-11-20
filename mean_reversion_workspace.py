@@ -8,9 +8,8 @@ import streamlit as st
 
 from mean_reversion_channels import CHANNELS, channel_readout, hit_probability
 from mean_reversion_examples import render_illustrated_rankings
-from mean_reversion_readout import POSITION_DATE, render_stock_readout
+from mean_reversion_readout import POSITION_DATE, render_stock_readout, render_score_details
 from mean_reversion_winner import (
-    REFERENCE_SYMBOLS,
     analyze_winner,
     fit_winner_channel,
     normalize_scores,
@@ -47,19 +46,6 @@ def _cached_company_name(symbol):
 @st.cache_data(ttl=3600, show_spinner=False)
 def _cached_channel(history, end_date):
     return fit_winner_channel(history, end_date=end_date)
-
-
-@st.cache_data(ttl=3600, show_spinner=False)
-def _cached_reference_analyses():
-    """Load the complete reference set; never normalize against a partial set."""
-    analyses = {}
-    unavailable = []
-    for symbol in REFERENCE_SYMBOLS:
-        try:
-            analyses[symbol] = analyze_winner(_cached_stock_history(symbol))
-        except Exception:
-            unavailable.append(symbol)
-    return analyses, unavailable
 
 
 def _load_history(symbol):
@@ -222,7 +208,7 @@ def _make_figure(primary, comparisons, model, readouts):
         for kind in ("upper", "median", "lower"):
             fig.add_trace(go.Scatter(
                 x=model["line_dates"], y=model["lines"][kind], mode="lines",
-                name={"upper": "Upper trend", "median": "Mean line (OLS)", "lower": "Lower trend"}[kind],
+                name={"upper": "Upper band (+2σ)", "median": "Mean line (rolling OLS)", "lower": "Lower band (−2σ)"}[kind],
                 line={"color": _COLORS[kind], "width": 2, "dash": "dash" if kind != "median" else "solid"},
                 customdata=custom,
                 hovertemplate=(
@@ -255,13 +241,24 @@ def _make_figure(primary, comparisons, model, readouts):
         xaxis={"title": "Date", "showgrid": True, "gridcolor": "rgba(91,111,106,.13)",
                "zeroline": False, "rangeslider": {"visible": False}},
         yaxis={"title": "Price (USD; comparisons rebased)", "type": "log",
-                 "tickprefix": "$", "tickformat": ",.2f", "showgrid": True,
+                 "tickprefix": "$", "tickformat": "$,.2~f", "showgrid": True,
                  "showexponent": "none", "minorloglabels": "none",
                 "gridcolor": "rgba(91,111,106,.13)", "zeroline": False,
                  **({"range": [math.log10(floor),
                                math.log10(max(positive_values) * 1.08)]}
                    if primary and floor and positive_values else {})},
     )
+    if primary and positive_values:
+        low, high = math.log10(floor), math.log10(max(positive_values)*1.15)
+        ticks = [10**(low+(high-low)*i/5) for i in range(6)]
+        labels = [
+            f"${value:,.2f}" if value < 1 else
+            f"${value:,.1f}".rstrip("0").rstrip(".") if value < 10 else
+            f"${value:,.0f}" for value in ticks
+        ]
+        fig.update_yaxes(tickmode="array", tickvals=ticks, ticktext=labels,
+                         minor={"ticks": "", "showgrid": False},
+                         minorloglabels="none")
     return fig
 
 
@@ -286,123 +283,23 @@ def _render_readouts(rows, selected_date):
 
 
 def _winner_reading(primary):
-    """Share the exact same analysis and normalization across both readouts."""
+    """Share the exact same absolute scores across both readouts."""
     try:
         analysis = analyze_winner(primary)
     except Exception:
         return None, None, []
-    references, unavailable = _cached_reference_analyses()
-    complete_references = not unavailable and all(
-        symbol in references for symbol in REFERENCE_SYMBOLS
-    )
-    try:
-        scores = normalize_scores(analysis, references) if complete_references else None
-    except ValueError:
-        scores = None
-    return analysis, scores, unavailable
+    return analysis, normalize_scores(analysis), []
 
 
 def _render_winner_analysis(primary, reading):
-    """Plain-language mean-reversion analysis and fully-scaled reference scores."""
+    """Expose components and both event cohorts without changing page two."""
     if not primary:
         return
     analysis, scores, unavailable = reading
     if analysis is None:
         st.write("Mean-reversion analysis needs adjusted history that is not currently available.")
         return
-    complete_references = not unavailable
-
-    st.subheader("Mean-reversion read")
-    st.caption(
-        "A direct stock screen: how strongly price returns to its long-run mean, "
-        "and whether that mean has been growing."
-    )
-    style = st.radio(
-        "Score emphasis", ("Steel hands", "Paper hands"),
-        horizontal=True, key=_SCORE_STYLE,
-        help="Both scores remain visible; this choice only changes which is emphasized.",
-    )
-    if unavailable or not complete_references:
-        missing = ", ".join(unavailable or REFERENCE_SYMBOLS)
-        st.write(
-            f"Reference scaling unavailable — missing history for {missing}. "
-            "Scores are withheld rather than normalized against a partial set."
-        )
-
-    verdict = analysis.get("verdict", "NO MEAN YET")
-    winner = bool(analysis.get("winner"))
-    verdict_color = "#527b5d" if winner else "#a25e4b"
-    with st.container(border=True):
-        st.markdown(
-            f"<div style='font-size:11px;letter-spacing:.12em;text-transform:uppercase;"
-            f"color:{verdict_color};font-weight:700'>Verdict</div>"
-            f"<div style='font-size:25px;font-weight:650;color:#293b38;margin:.15rem 0'>"
-            f"{'WINNER' if winner else 'NOT A WINNER'}</div>",
-            unsafe_allow_html=True,
-        )
-        if not winner:
-            reason = verdict.replace(" — not a winner.", "").replace(" — not a winner", "")
-            st.write(reason)
-        if analysis.get("range_tradeable"):
-            st.caption("Range-tradeable: buy only when clearly below the mean.")
-
-        steel = scores.get("steel") if scores is not None else None
-        paper = scores.get("paper") if scores is not None else None
-        prominent = steel if style == "Steel hands" else paper
-        other = paper if style == "Steel hands" else steel
-        other_label = "Paper hands" if style == "Steel hands" else "Steel hands"
-        score_cols = st.columns([1.5, 1])
-        score_cols[0].metric(
-            f"{style} score · 0–100",
-            f"{prominent:.1f}" if prominent is not None else "Unavailable",
-        )
-        score_cols[1].metric(
-            other_label,
-            f"{other:.1f}" if other is not None else "Unavailable",
-        )
-
-        slope_pct = analysis.get("slope_pct")
-        growth = analysis.get("growth")
-        if slope_pct is None and growth is not None:
-            slope_pct = float(growth) * 100
-        slope_text = f"{slope_pct:.2f}% per year" if slope_pct is not None else "Unavailable"
-        pull = analysis.get("pull")
-        pull_label = analysis.get("pull_label")
-        pull_text = f"{pull_label} pull" if pull_label else "Unavailable"
-        years = analysis.get("longest_years")
-        peak_pct = analysis.get("longest_peak_pct")
-        distance = (
-            f"{years:.2f} years, up to {peak_pct:.1f}% away"
-            if years is not None and peak_pct is not None else "Unavailable"
-        )
-        swing = analysis.get("typical_swing_pct")
-        metric_cols = st.columns(3)
-        metric_cols[0].metric("Mean line growth", slope_text)
-        st.write(
-            f"Mean line {'rising' if slope_pct >= 0 else 'declining'} "
-            f"{abs(slope_pct):.2f}% per year."
-        )
-        metric_cols[1].metric("Pull to the mean", pull_text)
-        metric_cols[2].metric("Typical swing", f"{swing:.1f}% from mean" if swing is not None else "Unavailable")
-        st.caption(f"Longest time away from the mean: {distance}.")
-
-        if analysis.get("has_mean"):
-            position = analysis.get("position_pct")
-            percentile = analysis.get("percentile")
-            side = "above" if position is not None and position >= 0 else "below"
-            position_text = (
-                f"{abs(position):.1f}% {side} the mean line"
-                if position is not None else "Position unavailable"
-            )
-            percentile_text = (
-                f"higher than {percentile:.1f}% of its history"
-                if percentile is not None else "historical percentile unavailable"
-            )
-            st.markdown(f"**Today:** {position_text} — {percentile_text}.")
-            if analysis.get("buy_zone"):
-                st.write("Clearly below the mean.")
-            else:
-                st.caption("Not currently in the clearly-below-mean buy zone.")
+    render_score_details(analysis, scores, _SCORE_STYLE)
 
 
 @st.fragment
@@ -458,7 +355,7 @@ def render_mean_reversion_workspace():
         with st.spinner("Fitting the price channel…"):
             model = _cached_channel(primary, value.isoformat())
         selected = value
-        rows = channel_readout(model, selected)
+        rows = channel_readout(model, selected) if model.get("has_mean") else []
 
     if primary:
         st.date_input(
@@ -524,7 +421,7 @@ def render_mean_reversion_workspace():
     if st.session_state.get(_ERROR):
         st.error(st.session_state[_ERROR])
 
-    if model:
+    if rows:
         _render_readouts(rows, selected)
 
     render_illustrated_rankings()
@@ -532,35 +429,49 @@ def render_mean_reversion_workspace():
     if model:
         with st.expander("Mean-reversion method"):
             st.write(
-                "Daily adjusted closes are fitted as a straight OLS line in log-price "
-                "over the full history. The mean-line slope is annualized growth. Swing "
-                "size is the standard deviation of log-price deviations from that line."
+                "Use full adjusted-close history. Starting after five calendar years, "
+                "fit each day's trend to the preceding five years, excluding that day's close. "
+                "The latest slope is annualized with exp(slope) − 1."
             )
             st.write(
-                "Pull smooths deviations with a 20-trading-day moving average, then "
-                "measures every excursion from one zero-crossing to the next, including "
-                "open excursions at either end of the history. Each excursion is the "
-                "area of absolute distance over time; the longest excursion (L) is an "
-                "area, not a duration in years. Pull is 1 / (1 + L / 8)."
+                "Closeness is the percentage of eligible closes within ±10% of their "
+                "same-day predicted trend. A departure is counted once until a close "
+                "returns to that daily band. Recovery uses the opening day's frozen "
+                "straight-line trend projection, not a later refit. Half the opening "
+                "log gap must close. Only events with five calendar years of follow-up "
+                "enter all three recovery percentages; newer events are separate."
             )
             st.write(
-                "Winner rules: at least five years of history, pull of at least 0.5, "
-                "and mean-line growth of at least 5% per year. Winners receive Steel "
-                "Hands and Paper Hands heuristic scores; these are not probabilities. "
-                "Scores are scaled to the fixed SOXL, TQQQ, SOXX, QQQ, and SPY reference "
-                "set, so they are withheld if any reference history is unavailable."
+                "Recovery = 0.90 × five-year + 0.075 × three-year + 0.025 × one-year "
+                "recovery percentages, using the same mature events. With fewer than "
+                "three mature events, use closeness alone. Mean Reversion Score is "
+                "the higher of closeness and recovery."
             )
             st.write(
-                "Position compares today's deviation with all historical deviations. "
-                "The buy zone begins 0.5 swing units below the mean. A stock with a "
-                "strong pull and a mean declining no faster than 10% per year may be "
-                "range-tradeable, but is not labeled a growth-stock winner."
+                "Median growth uses all eligible daily annualized slopes. Positive-year "
+                "share uses the last eligible slope of each completed calendar year; "
+                "the incomplete final year is excluded. Both rankings share a growth "
+                "verdict: median slope ≥5%, positive-year share ≥60%, and reversion ≥60. "
+                "Base = 100 × sqrt(clipped(median growth / 35%) × reversion / 100)."
+            )
+            st.write(
+                "Steel Hands = base × (0.75 + 0.25 × B). B is the capped median "
+                "opening depth of mature recovered downside events / 50%, times "
+                "the mature five-year downside recovery fraction; B = 0 below three "
+                "mature downside events. Paper Hands = base × (0.70 + 0.30 × U) × "
+                "(1 − 0.65 × D), where U is positive-year share and D is the capped "
+                "90th-percentile daily drawdown / 50%. Each drawdown uses the preceding "
+                "252 closes, excluding its own close. Deep dip is independent of winner "
+                "status: gap <−10%, percentile ≤10, at least three mature downside "
+                "events ≥75% of today's depth, and at least 60% recovered in five years."
             )
         with st.expander("Channel and probability method"):
             st.write(
-                "The center line is the full-history OLS mean in log-price. The existing "
-                "upper and lower channel lines remain historical reference lines, not "
-                "confidence bounds. "
+                "Historical center values are daily preceding-five-year OLS predictions. "
+                "The latest fit extends to the selected future date. Upper/lower "
+                "bands are ±2 residual standard deviations of each preceding fit, "
+                "not calibrated confidence bounds. Shading begins 10% below trend; "
+                "shading alone is not the deep-dip flag. "
                 "Touch probabilities use historical daily log-return drift and volatility "
                 "with a directional first-passage model, including downward targets. "
                 "They concern the fixed price shown for the selected date, not ending "

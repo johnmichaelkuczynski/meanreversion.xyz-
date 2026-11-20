@@ -13,14 +13,12 @@ import numpy as np
 def fixture_history(symbol):
     if symbol == "BAD":
         raise ValueError("No daily price history was found for BAD.")
-    dates = pd.bdate_range(end="2026-11-18", periods=1512)
-    values = np.exp(4 + .002*np.arange(1512) + .1*np.sin(np.arange(1512)/10))
+    dates = pd.bdate_range(end="2026-11-18", periods=3024)
+    values = np.exp(4 + .002*np.arange(3024) + .1*np.sin(np.arange(3024)/10))
     return {"symbol": symbol, "dates": dates.strftime("%Y-%m-%d").tolist(),
             "prices": values.tolist(), "through": "2026-11-18", "source": "test fixture"}
 workspace._cached_stock_history = fixture_history
 workspace._cached_company_name = lambda s: {"AAPL": "Apple Inc.", "MSFT": "Microsoft Corporation"}.get(s, s + " security")
-workspace._cached_reference_analyses = lambda: (
-    {s: workspace.analyze_winner(fixture_history(s)) for s in workspace.REFERENCE_SYMBOLS}, [])
 workspace.render_mean_reversion_workspace()
 """
 
@@ -54,14 +52,15 @@ def test_soxl_and_three_lines_load_without_input():
     assert app.header[0].value == "SOXL — SOXL security"
     assert any(h.value == "SOXL · Mean Reversion" for h in app.header)
     assert len(app.get("plotly_chart")) == 1
-    assert len(app.metric) == 11
+    assert len(app.metric) == 8
     figure = chart(app)
     assert len(figure["data"]) == 4
     assert figure["data"][0]["name"] == "SOXL · actual"
     assert [trace["name"] for trace in figure["data"][1:]] == [
-        "Upper trend", "Mean line (OLS)", "Lower trend"]
+        "Upper band (+2σ)", "Mean line (rolling OLS)", "Lower band (−2σ)"]
     assert figure["layout"]["height"] >= 500
-    assert next(m for m in app.metric if m.label == "Steel hands score · 0–100").value == "100.0"
+    assert " / 100" in next(m for m in app.metric if m.label == "Steel hands score · 0–100").value
+    assert all(label.startswith("$") for label in figure["layout"]["yaxis"]["ticktext"])
     app.radio[0].set_value("Paper hands").run()
     assert next(m for m in app.metric if m.label == "Paper hands score · 0–100")
     source = Path("mean_reversion_workspace.py").read_text()
@@ -178,7 +177,7 @@ def test_date_changes_all_targets_and_hover_uses_each_hovered_date():
     assert trend["customdata"][-1][1] != trend["customdata"][-2][1]
 
 
-def test_missing_reference_withholds_scores_without_losing_chart():
+def test_reference_outage_does_not_affect_absolute_scores():
     broken = SCRIPT.replace(
         "workspace.render_mean_reversion_workspace()",
         "workspace._cached_reference_analyses = lambda: ({}, ['QQQ'])\n"
@@ -186,7 +185,7 @@ def test_missing_reference_withholds_scores_without_losing_chart():
     )
     app = AppTest.from_string(broken, default_timeout=15).run()
     assert not app.exception
-    assert next(m for m in app.metric if m.label == "Steel hands score · 0–100").value == "Unavailable"
+    assert next(m for m in app.metric if m.label == "Steel hands score · 0–100").value != "Unavailable"
     assert len(chart(app)["data"]) == 4
 
 
@@ -201,10 +200,9 @@ def test_top_readout_has_identity_individual_facts_scores_and_selected_date():
 
     assert app.text_input[0].label == "Enter stock ticker"
     values = [m.value for m in app.markdown]
-    assert any(v.startswith("**Mean reverting: Yes") for v in values)
-    assert "**Mean trends up: Yes**" in values
-    assert any(v.startswith("**Mean trend growth: +") for v in values)
-    assert any(v.startswith("**Mean reversion + growth score · Steel hands:") for v in values)
+    assert any(v.startswith("**Mean Reversion Score:") for v in values)
+    assert any(v.startswith("**Latest mean trend growth: +") for v in values)
+    assert any(v.startswith("**Steel hands score:") for v in values)
     assert any(v.startswith("**Position on 2026-11-18:") for v in values)
     app.date_input("mr_workspace_position_date").set_value(date(2025, 11, 15)).run()
     assert not app.exception
@@ -214,8 +212,8 @@ def test_top_readout_has_identity_individual_facts_scores_and_selected_date():
 
 def test_nonwinner_verdict_is_the_first_page_fact_and_tracks_replacement():
     script = SCRIPT.replace(
-        'values = np.exp(4 + .002*np.arange(1512) + .1*np.sin(np.arange(1512)/10))',
-        'values = np.full(1512, 100.) if symbol == "KO" else np.exp(4 + .002*np.arange(1512) + .1*np.sin(np.arange(1512)/10))',
+        'values = np.exp(4 + .002*np.arange(3024) + .1*np.sin(np.arange(3024)/10))',
+        'values = np.full(3024, 100.) if symbol == "KO" else np.exp(4 + .002*np.arange(3024) + .1*np.sin(np.arange(3024)/10))',
     )
     app = AppTest.from_string(script, default_timeout=15).run()
     assert "WINNER — SOXL" in app.markdown[0].value
