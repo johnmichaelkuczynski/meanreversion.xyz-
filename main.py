@@ -3,6 +3,7 @@ import streamlit as st
 
 from clean_presentation import apply_clean_presentation
 from mean_reversion_workspace import render_mean_reversion_workspace
+from zhi_branding import render_zhi_branding
 
 
 st.set_page_config(page_title="Mean Reversion", layout="wide")
@@ -15,4 +16,5 @@ page = st.navigation(
     ],
     position="top",
 )
+render_zhi_branding()
 page.run()
