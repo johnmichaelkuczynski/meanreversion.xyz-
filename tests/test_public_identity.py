@@ -1,4 +1,4 @@
-"""Google login is removed; public access and local development remain."""
+"""Public access and automatic development identity stay independent of login."""
 from unittest.mock import patch
 
 import auth
@@ -20,7 +20,7 @@ def test_workspace_identity_survives_old_logout_state():
         st.button.assert_not_called()
 
 
-def test_production_and_unknown_environments_ignore_old_google_identity():
+def test_production_and_unknown_environments_do_not_create_development_identity():
     environments = [
         {},
         {"APP_ENV": "development"},
@@ -29,7 +29,7 @@ def test_production_and_unknown_environments_ignore_old_google_identity():
     ]
     for environ in environments:
         with patch.dict("os.environ", environ, clear=True), patch("auth.st") as st:
-            st.user = {"is_logged_in": True, "provider": "google"}
+            st.user = {"is_logged_in": False}
             assert not is_development_preview()
             assert get_current_user() == {"is_logged_in": False}
             render_development_status()
@@ -39,7 +39,8 @@ def test_production_and_unknown_environments_ignore_old_google_identity():
             st.button.assert_not_called()
 
 
-def test_google_configuration_and_login_functions_are_removed():
-    for name in ("render_google_login", "configure_google_auth", "auth_settings",
-                 "GOOGLE_METADATA", "redirect_uri"):
-        assert not hasattr(auth, name)
+def test_production_uses_server_verified_identity_not_session_flags():
+    with patch.dict("os.environ", {"APP_ENV": "production"}, clear=True), patch("auth.st") as st:
+        st.user = {"is_logged_in": True, "provider": "google", "sub": "test-subject"}
+        st.session_state = {"is_logged_in": False}
+        assert get_current_user() == st.user

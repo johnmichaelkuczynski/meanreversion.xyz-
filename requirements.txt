@@ -14,7 +14,7 @@ requests==2.32.5
 scikit-learn==1.9.1
 scipy==1.17.1
 statsmodels==0.15.0
-streamlit==1.55.0
+streamlit[auth]==1.55.0
 stripe==15.6.1
 toml==0.10.2
 tornado==6.5.10

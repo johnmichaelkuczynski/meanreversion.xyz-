@@ -10,7 +10,7 @@ feature is unavailable until its variables are supplied.
 | --- | --- | --- |
 | `PORT` | No | Public HTTP port; defaults to `5000`. The gateway listens on `0.0.0.0`. |
 | `APP_ENV` | No | Set to `production` for indexable SEO responses. Automatic development access requires the server-managed workspace marker and is disabled in production. Docker sets `production`. |
-| `PUBLIC_APP_URL` | For legacy billing return URLs | Public HTTPS origin, for example `https://soxlpro.xyz`; no path, query, or fragment. |
+| `PUBLIC_APP_URL` | Recommended for Google login | Public HTTPS origin without a path, query or fragment. When unset, Google login uses the current site's origin. |
 | `SOXL_DISABLE_WORKER` | No | Set to `1` to disable the market-refresh workers. |
 
 ## Database and visitor counter
@@ -19,7 +19,7 @@ feature is unavailable until its variables are supplied.
 | --- | --- | --- |
 | `NEON_DATABASE_URL` | Recommended | This app's PostgreSQL connection string. It takes priority for all app data, including market state, visitor counts, diagnostics, and Schwab OAuth tokens. Set it to this app's dedicated Neon database to keep data isolated from other apps. |
 | `DATABASE_URL` | Optional fallback | PostgreSQL connection URL used only when `NEON_DATABASE_URL` is not set. All web replicas and workers for this app must resolve to the same database. |
-| `SESSION_SECRET` | Recommended | Signs anonymous visitor identifiers. Use a long random value. |
+| `SESSION_SECRET` | Required for Google login | Persistent secret signing Google-auth cookies and anonymous visitor identifiers. |
 
 ## Market data
 
@@ -90,9 +90,25 @@ connection.
 | `R1_ANTHROPIC_MODEL` | No | Anthropic model selected by the system diagnostic; defaults to `claude-sonnet-4-5`. |
 | `GPTZERO_API_KEY` | Optional | GPTZero text-quality diagnostic. |
 
+## Direct Google login
+
+Google login uses your own credentials, not Clerk. Set these in the environment
+of the server actually serving the published app (Coolify credentials are
+separate from workspace secrets). Register the exact HTTPS origin plus
+`/oauth2callback` under **Authorized redirect URIs** on that same Google OAuth
+client. JavaScript origins alone do not authorize the callback. Credential
+changes require the server to receive its updated environment.
+
+The workspace remains automatically signed in with a development identity.
+That is not evidence of a successful Google-account login.
+
+| Variable | Required | Purpose |
+| --- | --- | --- |
+| `GOOGLE_CLIENT_ID` | Yes | Your Google OAuth web client ID. |
+| `GOOGLE_CLIENT_SECRET` | Yes | The secret for that same client. |
+
 ## Legacy Stripe configuration
 
-Google account login has been removed. Stored Google credentials are not used.
 
 | Variable | Required | Purpose |
 | --- | --- | --- |

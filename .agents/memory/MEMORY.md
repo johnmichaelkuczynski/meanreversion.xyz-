@@ -1,5 +1,5 @@
 - [Narrated demo videos](narrated-demo-video.md) — generateVideo caps at 8s; build long narrated demos as a PIL-slide + TTS + ffmpeg slideshow instead.
-- [Development access and login policy](deployment-environment-detection.md) — always signed in locally; Google login removed at user request; production markers override workspace detection.
+- [Development access and login policy](deployment-environment-detection.md) — always signed in locally; actual Google handoff must be verified; production markers override workspace detection.
 - [Always-on deployment](always-on-deployment.md) — user wants smallest Reserved VM; distinguish configured target, Publishing machine size, and live deployment.
 - [Startup latency](startup-latency.md) — DB-backed saved page within two seconds; distinguish initial results from interactive readiness and preserve proxy headers.
 - [Plotly heatmap hover safety](plotly-heatmap-hover-safety.md) — mixed customdata can trigger SVG NaN errors on hover; prefer preformatted hovertext.

@@ -11,14 +11,18 @@ Use `REPLIT_DEPLOYMENT=1` as the authoritative signal that code is running in a 
 `REPLIT_DEPLOYMENT`. Workspace automatic sign-in also requires the server-managed
 `REPLIT_DEV_DOMAIN`; an explicit production environment always disables it.
 
-Do not repair or reinstall Google login unless the user explicitly requests it
-again.
+Google login requires verification of the actual Google authorization handoff,
+not just the development bypass or mocked native-login calls.
 
-**Why:** The user explicitly said to remove Google login, not fix it.
+**Why:** Google rejected the published app's callback even while development
+access and local authentication tests passed.
 
-**How to apply:** Keep the app public and preserve development access. This
-instruction does not request removal of Schwab's separate market-data
-authorization.
+**How to apply:** Google must authorize the app's exact HTTPS origin plus
+`/oauth2callback` on the same client whose credentials the server uses.
+Credentials alone cannot modify Google's allowed callbacks. Never substitute
+another domain's callback to evade rejection: OAuth state and cookies belong
+to the initiating origin. Report provider rejection as blocked, not complete.
+Google authorization is separate from Schwab's market-data authorization.
 
 Always sign in with a clearly identified development-only identity in workspace
 preview sessions; never require Google login there or offer a development
