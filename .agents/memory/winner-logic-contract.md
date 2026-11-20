@@ -1,45 +1,43 @@
 ---
 name: Mean Reversion scoring contract
-description: User's replacement rolling five-year model, frozen recovery evidence, and illustrated rankings.
+description: User's seven-year recency weighting, excursion Pull, growth threshold, and illustrated rankings.
 ---
 
-Page-one scoring uses the user's latest rolling-five-year, excluded-close trend
-and frozen-recovery specification. It supersedes the full-history excursion-area
-winner formula and the aborted cycle-count/AR(1) proposal.
+Page-one scoring must use full adjusted-close history with a seven-year recency
+half-life, including the straight displayed mean. The user explicitly restored
+excursion-area Pull and required a 12% annual growth threshold.
 
-**Why:** The user explicitly replaced the prior logic and separately aborted the
-cycle-based instructions. Do not revive either earlier model.
+**Why:** The user identified unweighted MSFT/AAPL/COST/INTC slopes as evidence of
+the wrong implementation and explicitly required weighted fitting, swing,
+excursion sizes, volatility, and Pull instead of the rolling reversion score.
 
-**How to apply:** Use full available adjusted daily history, but fit each scored
-day from only its preceding five calendar years, excluding that close. Evaluate
-half-log-gap recovery against the opening-day frozen projected trend; later fits
-must never rescue an unrecovered crash. Count each departure once until price
-returns to its daily band. Newer events stay separate from the common mature
-five-year cohort, which includes failures.
+**How to apply:** Do not restore rolling five-year recovery scoring, cycle-count
+gates, or unweighted OLS. Weight by `0.5 ** (age_in_years / 7)` and pass square
+roots of those weights to polynomial fitting. Preserve fixed straight chart
+lines and long future extension. The chart, displayed slope, and position must
+refer to the same weighted fitted mean.
 
-The rolling-five-year rule is for scoring, not the displayed channel. The user
-subsequently rejected bent plotted bands and required fixed straight SOXL-style
-chart lines with long forward extension, without replacing the scoring formulas.
+Show Pull strength (Strong / Moderate / Weak), Steel Hands and Paper Hands,
+not the superseded “Mean-reverting: YES — score X/100” line.
 
-**Why:** Chart geometry and statistical recovery evidence have different roles;
-using rolling scoring fits as the visible channel violated the user's explicit
-chart requirement.
+**Why:** The user specifically required `PULL = 1 / (1 + L / 8)` and both
+hand scores, with INTC labeled “NOT A GROWTH STOCK — not a winner.”
 
-**How to apply:** Read the landing-chart priority topic before changing the
-plotted mean or its visible slope/position readout.
+**How to apply:** Do not tune a ticker or change constants to force a ranking.
+When validating, distinguish supplied expected values from computed results;
+unavailable reference values and tolerances cannot be certified as matching.
 
 Apply identical formulas to all securities and share one growth verdict across
 Steel Hands and Paper Hands. The deep-dip flag is independent of that verdict.
-Do not tune tickers, truncate history, or normalize scores to favorite benchmarks.
+Do not tune tickers, truncate history, or silently substitute a partial reference set.
 
-**Why:** The user supplied explicit ranking formulas, growth thresholds, and
-deep-dip requirements. Numerical schematic expectations may conflict with them.
+**Why:** The excursion specification uses fixed-reference normalization. A missing
+reference must not silently rescale every score.
 
-**How to apply:** Keep thresholds and weights together. Median growth uses all
-eligible daily annualized slopes; positive-year share uses completed calendar
-year-end slopes, excluding an incomplete final year. Disclose these conventions
-and failures rather than silently changing rules. Synthetic schematic tests are
-numerical approximations, not digitizations of the uploaded artwork.
+**How to apply:** Keep thresholds and weights together. State smoothing endpoints,
+weighted variance, excursion weighting, and normalization conventions explicitly
+when the available specification does not resolve them. Do not present inferred
+conventions as verified reference values.
 
 Keep both illustrated rankings below the Mean Reversion graph with all thirteen
 original drawings and perspective-specific significance. Their prescribed

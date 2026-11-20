@@ -1,4 +1,4 @@
-"""One-fact-per-line readout for the walk-forward Mean Reversion model."""
+"""One-fact-per-line readout for the recency-weighted straight-mean model."""
 from bisect import bisect_right
 from datetime import date
 from html import escape
@@ -15,7 +15,7 @@ POSITION_DATE = "mr_workspace_position_date"
 def dated_position(history, analysis, selected):
     index = bisect_right(analysis["trend_dates"], selected.isoformat()) - 1
     if index < 0:
-        raise ValueError("Five preceding years are required for a dated trend.")
+        raise ValueError("Five years of history are required for a scored mean.")
     day = analysis["trend_dates"][index]
     price = history["prices"][bisect_right(history["dates"], day)-1]
     gap = float(price/analysis["trend_prices"][index]-1)
@@ -48,18 +48,17 @@ def _percent(value):
 
 def summary_lines(analysis, scores, position):
     if not analysis["has_mean"]:
-        return [("Trend", "Insufficient history — five preceding years required"),
-                ("Mean Reversion Score", "Unavailable"),
+        return [("Trend", "Insufficient history — five years required"),
+                ("Pull", "Unavailable — insufficient history"),
                 ("Deep-dip flag", "No — insufficient history")]
     day, gap, percentile = position
     direction = "ABOVE" if gap > 0 else "BELOW" if gap < 0 else "ON"
     return [
-        ("Mean Reversion Score", _score(analysis["mean_reversion_score"])),
-        ("Closeness", f"{analysis['closeness_score']:.1f}% of eligible closes within 10% of trend"),
-        ("Recovery score", _score(analysis["recovery_score"]) if analysis["recovery_score"] is not None else "Insufficient recovery history"),
-        ("Latest mean trend growth", f"{analysis['slope_pct']:+.2f}% per year"),
-        ("Median annualized trend slope", f"{analysis['median_growth_pct']:+.2f}%"),
-        ("Positive year-end slopes", _percent(analysis["positive_year_fraction"])),
+        ("Pull", f"{analysis['pull_strength']} — {analysis['pull']:.4f}"),
+        ("Weighted excursion size L", f"{analysis['longest_excursion']:.6f} log-years"),
+        ("Weighted swing W", f"{analysis['swing']:.6f}"),
+        ("Weighted annualized volatility", _percent(analysis["volatility"])),
+        ("Mean trend growth", f"{analysis['slope_pct']:+.2f}% per year"),
         (f"Position on {day}", f"{abs(gap):.1f}% {direction} trend — higher than {percentile:.1f}% of historical gaps"),
         ("Steel hands score", _score(scores["steel"])),
         ("Paper hands score", _score(scores["paper"])),
@@ -89,20 +88,13 @@ def render_stock_readout(history, company_name, analysis, scores, channel=None):
         trend = slope = "Insufficient — analysis unavailable"
         dated = "Unavailable — no dated trend analysis"
     elif not analysis.get("has_mean"):
-        verdict = "INSUFFICIENT SCORING HISTORY"
-        reversion = (
-            f"Insufficient history — five preceding years required "
-            f"(minimum score {CONFIG['minimum_mean_reversion']:.0f})"
-        )
+        verdict = analysis["verdict"]
+        reversion = "Unavailable — five years of history required"
         trend = slope = "Insufficient five-year trend history"
         dated = "Insufficient five-year trend history"
     else:
-        verdict = "WINNER" if analysis["winner"] else "NOT A WINNER"
-        is_reverting = analysis["mean_reversion_score"] >= CONFIG["minimum_mean_reversion"]
-        reversion = (
-            f"{'YES' if is_reverting else 'NO'} — "
-            f"score {analysis['mean_reversion_score']:.1f} / 100"
-        )
+        verdict = analysis["verdict"]
+        reversion = f"{analysis['pull_strength']} — {analysis['pull']:.4f}"
         trend = "UP" if analysis["slope_pct"] > 0 else "NOT UP"
         slope = f"{analysis['slope_pct']:+.2f}% per year"
         day, gap, _percentile = position
@@ -156,7 +148,9 @@ def render_stock_readout(history, company_name, analysis, scores, channel=None):
           <div class="mr-ticker">TICKER: {symbol}</div>
           <div class="mr-company">Company: {company}</div>
           <div class="mr-fact">Verdict: {escape(verdict)}</div>
-          <div class="mr-fact">Mean-reverting: {escape(reversion)}</div>
+          <div class="mr-fact">Pull: {escape(reversion)}</div>
+          <div class="mr-fact">Steel hands: {escape(_score(scores['steel']) if scores else 'Unavailable')}</div>
+          <div class="mr-fact">Paper hands: {escape(_score(scores['paper']) if scores else 'Unavailable')}</div>
           <div class="mr-fact">Mean trend: {escape(trend)}</div>
           <div class="mr-fact">Annualized slope: {escape(slope)}</div>
           <div class="mr-fact">Position: {escape(dated)}</div>
@@ -171,8 +165,8 @@ def render_stock_readout(history, company_name, analysis, scores, channel=None):
             max_value=last,
             key=POSITION_DATE,
             help=(
-                "Uses the last available close on or before this date and that "
-                "the fixed straight mean shown on the chart."
+                "Uses the last available close on or before this date and "
+                "the fixed recency-weighted straight mean shown on the chart."
             ),
         )
 
@@ -180,7 +174,7 @@ def render_stock_readout(history, company_name, analysis, scores, channel=None):
 def render_score_details(analysis, scores, style_key, history=None):
     st.subheader("Mean-reversion components")
     if not analysis["has_mean"]:
-        st.write("Five preceding years of adjusted daily closes are required.")
+        st.write("Five years of adjusted daily closes are required for a scored mean.")
         return
     first = date.fromisoformat(analysis["trend_dates"][0])
     last = date.fromisoformat(analysis["trend_dates"][-1])
@@ -198,29 +192,27 @@ def render_score_details(analysis, scores, style_key, history=None):
     for column, key in zip(cols, keys):
         column.metric(f"{key.title()} hands score · 0–100", _score(scores[key]))
     st.write(f"Shared growth verdict: {analysis['verdict']}.")
-    st.write(f"Mature recovery events: {analysis['mature_count']}.")
-    for year in CONFIG["recovery_years"]:
-        fraction = analysis["recovery_fractions"][str(year)]
-        st.write(f"{year}-year recovery: {_percent(fraction) if fraction is not None else 'No mature events'}.")
-    st.write(f"Newer events, excluded from recovery scoring: {analysis['newer_count']}.")
-    st.write(f"Steel Hands downside bonus component: {analysis['depth_bonus']:.4f}.")
-    st.write(f"Paper Hands 90th-percentile drawdown: {analysis['drawdown90']:.1%}.")
-    st.write(f"Deep-dip qualifying mature downside events: {analysis['matched_dip_count']}.")
-    fraction = analysis["matched_dip_recovery_fraction"]
-    st.write(f"Deep-dip recovery fraction: {fraction:.1%}." if fraction is not None
-             else "Deep-dip recovery fraction: no qualifying events.")
+    st.write(f"Pull to the mean: {analysis['pull_strength']} ({analysis['pull']:.4f}).")
+    st.write(f"Mean line rising {analysis['slope_pct']:.2f}% per year."
+             if analysis["slope_pct"] >= 0 else
+             f"Mean line falling {abs(analysis['slope_pct']):.2f}% per year.")
+    st.write(f"Typical swing: {np.expm1(analysis['swing']):.1%} from the mean.")
+    longest = analysis["largest_excursion"]
+    if longest:
+        st.write(f"Largest weighted excursion: {longest['size']:.4f} log-years; "
+                 f"{longest['years']:.2f} years, up to {longest['maximum_gap_pct']:.1f}% away.")
+    st.write("Clearly below the mean." if analysis["deep_dip"] else "Not currently clearly below the mean.")
+    if analysis["range_tradeable"]:
+        st.write("Range-tradeable: buy only when clearly below the mean.")
     st.caption("Ranking scores are heuristic scores, not probabilities.")
-    for title, events in (("Mature events · five years of follow-up", analysis["mature_events"]),
-                          ("Newer events · not used in recovery scoring", analysis["newer_events"])):
-        with st.expander(f"{title} ({len(events)})"):
-            if events:
-                st.dataframe([{
-                    "Opened": event["opened"], "Side": event["direction"],
-                    "Opening depth": f"{event['opening_depth']:.1%}",
-                    "Half-gap recovery": event["recovered_on"] or "Not recovered",
-                    "Within 1 year": event["recovered_within"]["1"],
-                    "Within 3 years": event["recovered_within"]["3"],
-                    "Within 5 years": event["recovered_within"]["5"],
-                } for event in events], hide_index=True, use_container_width=True)
-            else:
-                st.write("No events in this group.")
+    with st.expander("Method and weighted excursions"):
+        st.write("All available adjusted daily closes. Seven-year recency half-life. "
+                 "The straight mean uses weighted least squares; swing and daily-return "
+                 "volatility use weighted population standard deviations. "
+                 "After 20-session smoothing, excursion areas sum absolute log gaps "
+                 "times each day's recency weight, divided by 252. "
+                 "Pull = 1 / (1 + L / 8). Growth winners require at least 12% per year.")
+        st.write("Steel = growth × Pull × (1 + W). "
+                 "Paper = growth × Pull / (1 + 3W)^4. "
+                 "Each is normalized to its maximum across SOXL, TQQQ, SOXX, QQQ and SPY, capped at 100.")
+        st.dataframe(analysis["excursions"], hide_index=True, use_container_width=True)

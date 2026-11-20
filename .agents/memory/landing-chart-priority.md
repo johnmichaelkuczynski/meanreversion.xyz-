@@ -50,9 +50,10 @@ must describe the same fixed mean that is drawn.
 **Why:** The user explicitly rejected bent lines that conform to price and
 repeated the requirement for straight lines and long user-controlled extension.
 
-**How to apply:** Keep this chart geometry separate from the walk-forward
-recovery scoring. Do not silently change the ranking formulas when changing
-the displayed channel.
+**How to apply:** The subsequent explicit scoring correction requires a
+seven-year recency-weighted straight mean for both scoring and display.
+Follow the winner scoring contract; do not restore unweighted chart OLS
+or rolling recovery scoring.
 
 The Mean Reversion tricolor readout must be large and readable, like SOXL's,
 with explicit Price and Probability per line and Expand/Restore, Collapse/Show,

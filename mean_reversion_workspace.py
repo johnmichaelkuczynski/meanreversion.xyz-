@@ -1,6 +1,7 @@
 """Chart-first stock research workspace for the Mean Reversion page."""
 
 from datetime import date, timedelta
+from concurrent.futures import ThreadPoolExecutor
 from html import escape
 import math
 
@@ -12,6 +13,7 @@ from mean_reversion_chart import render_channel_chart
 from mean_reversion_examples import render_illustrated_rankings
 from mean_reversion_readout import POSITION_DATE, render_stock_readout, render_score_details
 from mean_reversion_winner import (
+    CONFIG,
     analyze_winner,
     normalize_scores,
 )
@@ -46,7 +48,23 @@ def _cached_company_name(symbol):
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def _cached_channel(history, end_date):
+    """Seven-year weighted straight channel (invalidates the former OLS cache)."""
     return fit_channel(history, end_date=end_date)
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def _cached_reference_analyses():
+    """Use all five fixed reference securities; never normalize a partial set."""
+    def load(symbol):
+        try:
+            return symbol, analyze_winner(load_stock_history(
+                symbol, start_date="1900-01-01", tiingo_only=True))
+        except Exception:
+            return symbol, None
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        rows = list(pool.map(load, CONFIG["reference_symbols"]))
+    return ({s: a for s, a in rows if a is not None},
+            [s for s, a in rows if a is None])
 
 
 def _load_history(symbol):
@@ -314,12 +332,15 @@ def _render_readouts(rows, selected_date):
 
 
 def _winner_reading(primary):
-    """Share the exact same absolute scores across both readouts."""
+    """Share the weighted analysis and fixed-reference scores across readouts."""
     try:
         analysis = analyze_winner(primary)
     except Exception:
         return None, None, []
-    return analysis, normalize_scores(analysis), []
+    if not analysis["winner"]:
+        return analysis, normalize_scores(analysis), []
+    references, unavailable = _cached_reference_analyses()
+    return analysis, normalize_scores(analysis, references.values()), unavailable
 
 
 def _render_winner_analysis(primary, reading):
@@ -330,6 +351,9 @@ def _render_winner_analysis(primary, reading):
     if analysis is None:
         st.write("Mean-reversion analysis needs adjusted history that is not currently available.")
         return
+    if unavailable:
+        st.write("Normalized scores unavailable: reference history missing for " +
+                 ", ".join(unavailable) + ". Pull and slope remain available.")
     render_score_details(analysis, scores, _SCORE_STYLE, primary)
 
 
@@ -476,55 +500,38 @@ def render_mean_reversion_workspace():
         with st.expander("Mean-reversion method"):
             st.write(
                 "The chart uses three fixed, straight log-price trend lines fitted "
-                "to the full available history, matching the SOXL chart. Its "
-                "displayed slope and above/below-mean distance refer to that "
-                "fixed chart mean. The recovery scores below use the separate "
-                "walk-forward calculation described here."
+                "to full adjusted-close history with a seven-year recency half-life. "
+                "The chart, annualized slope, position and Pull calculation all "
+                "use the same weighted straight mean."
             )
             st.write(
-                "Use full adjusted-close history. Starting after five calendar years, "
-                "fit each day's trend to the preceding five years, excluding that day's close. "
-                "The latest slope is annualized with exp(slope) − 1."
+                "Daily weight = 0.5 raised to (age in years / 7). The log-price fit "
+                "receives square roots of these weights. Annual slope = exp(slope) − 1. "
+                "Swing and volatility use weighted standard deviations."
             )
             st.write(
-                "Closeness is the percentage of eligible closes within ±10% of their "
-                "same-day predicted trend. A departure is counted once until a close "
-                "returns to that daily band. Recovery uses the opening day's frozen "
-                "straight-line trend projection, not a later refit. Half the opening "
-                "log gap must close. Only events with five calendar years of follow-up "
-                "enter all three recovery percentages; newer events are separate."
+                "Smooth log gaps over 20 trading sessions; split excursions when "
+                "the smoothed gap crosses zero. Each excursion sums absolute gap "
+                "times the daily recency weight, divided by 252. Include unfinished "
+                "excursions. L is the largest weighted excursion area."
             )
             st.write(
-                "Recovery = 0.90 × five-year + 0.075 × three-year + 0.025 × one-year "
-                "recovery percentages, using the same mature events. With fewer than "
-                "three mature events, use closeness alone. Mean Reversion Score is "
-                "the higher of closeness and recovery."
+                "Pull = 1 / (1 + L / 8). Strong ≥0.8; Moderate ≥0.5; otherwise Weak. "
+                "Winners require five years of history, Pull ≥0.5 and annual growth ≥12%."
             )
             st.write(
-                "Median growth uses all eligible daily annualized slopes. Positive-year "
-                "share uses the last eligible slope of each completed calendar year; "
-                "the incomplete final year is excluded. Both rankings share a growth "
-                "verdict: median slope ≥5%, positive-year share ≥60%, and reversion ≥60. "
-                "Base = 100 × sqrt(clipped(median growth / 35%) × reversion / 100)."
-            )
-            st.write(
-                "Steel Hands = base × (0.75 + 0.25 × B). B is the capped median "
-                "opening depth of mature recovered downside events / 50%, times "
-                "the mature five-year downside recovery fraction; B = 0 below three "
-                "mature downside events. Paper Hands = base × (0.70 + 0.30 × U) × "
-                "(1 − 0.65 × D), where U is positive-year share and D is the capped "
-                "90th-percentile daily drawdown / 50%. Each drawdown uses the preceding "
-                "252 closes, excluding its own close. Deep dip is independent of winner "
-                "status: gap <−10%, percentile ≤10, at least three mature downside "
-                "events ≥75% of today's depth, and at least 60% recovered in five years."
+                "Steel Hands = growth × Pull × (1 + W). Paper Hands = "
+                "growth × Pull / (1 + 3W)^4. Non-winners score zero. "
+                "Each score is divided by its highest reference score across "
+                "SOXL, TQQQ, SOXX, QQQ and SPY, scaled to 100 and capped at 100."
             )
         with st.expander("Channel and probability method"):
             st.write(
-                "Chart slope is full-history OLS in log price. Upper, mean, and lower "
-                "lines use the maximum, median, and minimum residual intercept, "
-                "matching the SOXL automatic channel. All three remain straight "
+                "Chart slope is the seven-year recency-weighted log-price slope. "
+                "The mean intercept is the weighted fitted intercept; upper and lower "
+                "parallel lines touch the full-history maximum and minimum residual. All three remain straight "
                 "and extend to the selected future date; they are not rolling bands. "
-                "Touch probabilities use historical daily log-return drift and volatility "
+                "Touch probabilities use recency-weighted daily log-return drift and volatility "
                 "with a directional first-passage model, including downward targets. "
                 "They concern the fixed price shown for the selected date, not ending "
                 "above that price or touching a moving channel."

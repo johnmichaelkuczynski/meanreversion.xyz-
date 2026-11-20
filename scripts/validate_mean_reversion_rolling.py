@@ -132,4 +132,8 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    # The active scorer is no longer the rolling-recovery model. Keep this
+    # historical report source, but never run its old assertions on new scores.
+    from validate_mean_reversion_weighted import main as weighted_main
+    print("Rolling scoring was superseded; generating the weighted regression report.")
+    weighted_main()

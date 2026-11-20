@@ -76,18 +76,19 @@ def test_bad_prices_fail_explicitly(prices):
         fit_channel(data)
 
 
-def test_channels_match_existing_soxl_log10_algorithm():
+def test_channels_share_weighted_mean_and_preserve_parallel_straight_envelopes():
     data = history()
     model = fit_channel(data, "2030-01-01")
     times = np.asarray((pd.to_datetime(data["dates"]) - pd.Timestamp(data["dates"][0])).days, float)
-    transformed = np.log10(data["prices"])
-    slope = ((times - times.mean()) @ (transformed - transformed.mean()) /
-             ((times - times.mean()) @ (times - times.mean())))
+    times /= 365.25
+    transformed = np.log(data["prices"])
+    weights = .5**((times[-1]-times)/7)
+    slope, mean_intercept = np.polyfit(times, transformed, 1, w=np.sqrt(weights))
     intercepts = transformed - slope * times
-    duration = (pd.Timestamp("2030-01-01") - pd.Timestamp(data["dates"][0])).days
-    for kind, intercept in [("upper", max(intercepts)), ("median", np.median(intercepts)),
+    duration = (pd.Timestamp("2030-01-01") - pd.Timestamp(data["dates"][0])).days/365.25
+    for kind, intercept in [("upper", max(intercepts)), ("median", mean_intercept),
                             ("lower", min(intercepts))]:
-        assert model["lines"][kind][-1] == pytest.approx(10 ** (intercept + slope * duration))
+        assert model["lines"][kind][-1] == pytest.approx(np.exp(intercept + slope * duration))
 
 
 def test_very_distant_dates_do_not_require_pandas_nanosecond_range_or_daily_future_points():

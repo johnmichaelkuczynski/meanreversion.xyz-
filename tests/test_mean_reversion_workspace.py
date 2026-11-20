@@ -25,6 +25,7 @@ def fixture_history(symbol):
             "prices": values.tolist(), "through": "2026-11-18", "source": "test fixture"}
 workspace._cached_stock_history = fixture_history
 workspace._cached_company_name = lambda s: {"AAPL": "Apple Inc.", "MSFT": "Microsoft Corporation"}.get(s, s + " security")
+workspace._cached_reference_analyses = lambda: ({s: workspace.analyze_winner(fixture_history(s)) for s in workspace.CONFIG["reference_symbols"]}, [])
 workspace.render_mean_reversion_workspace()
 """
 
@@ -220,7 +221,7 @@ def test_date_changes_all_targets_and_hover_uses_each_hovered_date():
     assert trend["customdata"][-1][1] != trend["customdata"][-2][1]
 
 
-def test_reference_outage_does_not_affect_absolute_scores():
+def test_reference_outage_keeps_chart_and_pull_but_never_invents_normalized_scores():
     broken = SCRIPT.replace(
         "workspace.render_mean_reversion_workspace()",
         "workspace._cached_reference_analyses = lambda: ({}, ['QQQ'])\n"
@@ -228,7 +229,9 @@ def test_reference_outage_does_not_affect_absolute_scores():
     )
     app = AppTest.from_string(broken, default_timeout=15).run()
     assert not app.exception
-    assert next(m for m in app.metric if m.label == "Steel hands score · 0–100").value != "Unavailable"
+    assert next(m for m in app.metric if m.label == "Steel hands score · 0–100").value == "Unavailable"
+    assert "Pull: Strong" in top_facts(app)
+    assert "Annualized slope: +" in top_facts(app)
     assert len(chart(app)["data"]) == 4
 
 
@@ -242,13 +245,15 @@ def test_top_readout_has_identity_individual_facts_scores_and_selected_date():
     assert "Company: Apple Inc." in top_facts(app)
     assert app.text_input[0].label == "Enter stock ticker"
     facts = top_facts(app)
-    assert "Mean-reverting: YES — score " in facts
+    assert "Pull: Strong" in facts
+    assert "Steel hands: " in facts and "Paper hands: " in facts
+    assert "Mean-reverting: YES" not in facts
     assert "Mean trend: UP" in facts
     assert "Annualized slope: +" in facts
     assert "Position: 2026-11-18:" in facts
     assert "color: #111" in facts
     assert "font-size: clamp(" in facts
-    assert facts.index("TICKER:") < facts.index("Verdict:") < facts.index("Mean-reverting:")
+    assert facts.index("TICKER:") < facts.index("Verdict:") < facts.index("Pull:")
     assert any("Steel hands score:" in caption.value for caption in app.caption)
     app.date_input("mr_workspace_position_date").set_value(date(2025, 11, 15)).run()
     assert not app.exception
@@ -267,10 +272,10 @@ def test_nonwinner_verdict_is_the_first_page_fact_and_tracks_replacement():
     app.text_input("mr_workspace_top_primary_input").input("KO")
     next(b for b in app.button if b.label == "Replace primary").click().run()
     assert not app.exception
-    assert "Verdict: NOT A WINNER" in top_facts(app)
+    assert "Verdict: NOT A GROWTH STOCK — not a winner" in top_facts(app)
     assert "TICKER: KO" in top_facts(app)
     assert "SOXL" not in top_facts(app)
-    assert "Mean-reverting: YES" in top_facts(app)
+    assert "Pull: Strong" in top_facts(app)
     assert "Mean trend: NOT UP" in top_facts(app)
 
 
@@ -313,7 +318,8 @@ def test_short_history_replaces_chart_with_fixed_lines_without_inventing_scores(
     facts = top_facts(app)
     assert "TICKER: VWAV" in facts
     assert "SOXL" not in facts
-    assert "INSUFFICIENT SCORING HISTORY" in facts
+    assert "NO MEAN YET — not a winner" in facts
+    assert "Pull: Unavailable" in facts
     assert "Annualized slope: +" in facts
     assert len(chart_args(app)["rows"]) == 3
 

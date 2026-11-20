@@ -1,41 +1,9 @@
-"""Walk-forward five-year trends and ticker-independent Mean Reversion scores."""
-from types import MappingProxyType
+"""Recency-weighted, straight-mean excursion scoring for Mean Reversion only."""
 
 import numpy as np
 import pandas as pd
 
-from mean_reversion_recovery import recovery_components, recovery_events
-
-CONFIG = MappingProxyType({
-    "trend_years": 5,
-    "calendar_days": 365.25,
-    "trading_days": 252,
-    "band_fraction": .10,
-    "remaining_gap_fraction": .50,
-    "maturity_years": 5,
-    "minimum_mature_events": 3,
-    "recovery_years": (5, 3, 1),
-    "recovery_weights": (.90, .075, .025),
-    "minimum_median_growth": .05,
-    "minimum_positive_years": .60,
-    "minimum_mean_reversion": 60.,
-    "growth_scale": .35,
-    "steel_base_weight": .75,
-    "steel_depth_weight": .25,
-    "depth_scale": .50,
-    "minimum_mature_downside_events": 3,
-    "paper_base_weight": .70,
-    "paper_positive_weight": .30,
-    "paper_drawdown_penalty": .65,
-    "drawdown_sessions": 252,
-    "drawdown_quantile": .90,
-    "drawdown_scale": .50,
-    "dip_gap_threshold": -.10,
-    "dip_percentile": 10.,
-    "dip_depth_fraction": .75,
-    "dip_minimum_recovery": .60,
-    "band_sigmas": 2.,
-})
+from mean_reversion_weights import CONFIG, weighted_fit
 
 
 def _history_arrays(history):
@@ -55,8 +23,10 @@ def rolling_trends(history):
     dates, prices = _history_arrays(history)
     t = np.asarray((dates - dates[0]).days, dtype=float) / CONFIG["calendar_days"]
     y = np.log(prices)
-    starts = dates.searchsorted(dates - pd.DateOffset(years=CONFIG["trend_years"]))
-    indices = np.flatnonzero(dates >= dates[0] + pd.DateOffset(years=CONFIG["trend_years"]))
+    # Historical helper retained for the archived rolling-model report only.
+    # Neither the active scorer nor the chart calls this function.
+    starts = dates.searchsorted(dates - pd.DateOffset(years=5))
+    indices = np.flatnonzero(dates >= dates[0] + pd.DateOffset(years=5))
     indices = indices[(indices - starts[indices]) >= 2]
     left = starts[indices]
     n = indices - left
@@ -75,118 +45,103 @@ def rolling_trends(history):
     return dates, prices, indices, predictions, slopes, intercepts, sigma
 
 
-def analyze_winner(history):
-    dates, prices, indices, trends, slopes, intercepts, sigma = rolling_trends(history)
-    base = {
-        "symbol": history["symbol"], "years": float((dates[-1]-dates[0]).days/CONFIG["calendar_days"]),
-        "has_mean": bool(len(indices)), "origin": dates[0].date().isoformat(),
-        "trend_dates": dates[indices].strftime("%Y-%m-%d").tolist(),
-        "trend_prices": np.exp(trends).tolist(),
-        "trend_slopes": slopes.tolist(), "trend_sigmas": sigma.tolist(),
-    }
-    if not len(indices):
-        return {**base, "winner": False, "verdict": "INSUFFICIENT TREND HISTORY",
-                "scores": {"steel": None, "paper": None}, "deep_dip": False,
-                "mean_reversion_score": None, "closeness_score": None,
-                "recovery_score": None, "mature_events": [], "newer_events": [],
-                "mature_count": 0, "newer_count": 0}
-    residual = np.log(prices[indices]) - trends
-    gaps = np.expm1(residual)
-    closeness = float(100*np.mean(np.abs(gaps) <= CONFIG["band_fraction"]))
-    events = recovery_events(dates, prices, indices, trends, slopes, CONFIG)
-    recovery = recovery_components(events, CONFIG)
-    mrs = max(closeness, recovery["recovery_score"] if recovery["recovery_score"] is not None else 0.)
-    annual_slopes = np.expm1(slopes)
-    median_growth = float(np.median(annual_slopes))
-    # Only completed calendar years; do not count an incomplete current year.
-    eligible_dates = dates[indices]
-    year_end_indices = [i for i in range(len(indices)) if
-                        (i == len(indices)-1 or eligible_dates[i+1].year != eligible_dates[i].year)
-                        and (eligible_dates[i].year < dates[-1].year or
-                             (dates[-1].month == 12 and dates[-1].day == 31))]
-    yearly = annual_slopes[year_end_indices]
-    positive_fraction = float(np.mean(yearly > 0)) if len(yearly) else None
-    high = pd.Series(prices).shift(1).rolling(CONFIG["drawdown_sessions"],
-                                             min_periods=CONFIG["drawdown_sessions"]).max()
-    drawdowns = np.maximum(0., 1-pd.Series(prices)/high).dropna().to_numpy()
-    drawdown90 = float(np.quantile(drawdowns, CONFIG["drawdown_quantile"])) if len(drawdowns) else 0.
-    d = min(1., drawdown90/CONFIG["drawdown_scale"])
-    g = float(np.clip(median_growth/CONFIG["growth_scale"], 0., 1.))
-    m = mrs/100
-    base_score = float(100*np.sqrt(g*m))
-    steel = base_score*(CONFIG["steel_base_weight"] + CONFIG["steel_depth_weight"]*recovery["depth_bonus"])
-    paper = (base_score*(CONFIG["paper_base_weight"] + CONFIG["paper_positive_weight"]*positive_fraction)*
-             (1-CONFIG["paper_drawdown_penalty"]*d)) if positive_fraction is not None else None
-    winner = bool(median_growth >= CONFIG["minimum_median_growth"] and
-                  positive_fraction is not None and positive_fraction >= CONFIG["minimum_positive_years"] and
-                  mrs >= CONFIG["minimum_mean_reversion"])
-    percentile = float(100*np.mean(gaps <= gaps[-1]))
-    depth = -float(gaps[-1])
-    matched = [event for event in recovery["mature_events"] if
-               event["direction"] == "downside" and
-               event["opening_depth"] >= CONFIG["dip_depth_fraction"]*depth]
-    dip_recovery = sum(e["recovered"] for e in matched)/len(matched) if matched else None
-    deep_dip = bool(gaps[-1] < CONFIG["dip_gap_threshold"] and percentile <= CONFIG["dip_percentile"] and
-                    len(matched) >= CONFIG["minimum_mature_downside_events"] and
-                    dip_recovery >= CONFIG["dip_minimum_recovery"])
+def weighted_excursions(residual, weights, dates):
+    """20-session smoothing; integrate |gap| * recency weight / 252 per side.
+
+    Zero belongs to neither side. Include unfinished excursions at both ends;
+    a price that has not returned must not disappear from the pull calculation.
+    """
+    smooth = pd.Series(residual).rolling(CONFIG["smoothing_days"], min_periods=1).mean().to_numpy()
+    excursions = []
+    start, sign = None, 0
+    for i, value in enumerate(smooth):
+        side = int(np.sign(value))
+        if sign and side != sign:
+            excursions.append(_excursion(start, i, smooth, weights, dates))
+            start, sign = None, 0
+        if side and start is None:
+            start, sign = i, side
+    if start is not None:
+        excursions.append(_excursion(start, len(smooth), smooth, weights, dates))
+    return excursions
+
+
+def _excursion(start, stop, smooth, weights, dates):
+    values = smooth[start:stop]
     return {
-        **base, **recovery, "winner": winner, "verdict": "WINNER" if winner else "NOT A WINNER",
-        "slope": float(slopes[-1]), "intercept": float(intercepts[-1]),
-        "growth": float(annual_slopes[-1]), "slope_pct": float(annual_slopes[-1]*100),
-        "median_growth": median_growth, "median_growth_pct": median_growth*100,
-        "positive_year_fraction": positive_fraction,
-        "year_end_slopes": {str(eligible_dates[i].year): float(annual_slopes[i]) for i in year_end_indices},
-        "closeness_score": closeness, "mean_reversion_score": float(mrs),
-        "base_score": base_score, "scores": {"steel": float(steel), "paper": float(paper) if paper is not None else None},
-        "drawdown90": drawdown90, "drawdown_factor": d,
-        "position_pct": float(gaps[-1]*100), "percentile": percentile,
-        "historical_gaps": gaps.tolist(), "deep_dip": deep_dip,
-        "matched_dip_count": len(matched), "matched_dip_recovery_fraction": dip_recovery,
-        "swing": float(sigma[-1]),
+        "opened": dates[start].date().isoformat(),
+        "ended": dates[stop-1].date().isoformat(),
+        "side": "Above" if values[0] > 0 else "Below",
+        "size": float(np.sum(np.abs(values)*weights[start:stop])/CONFIG["trading_days"]),
+        "years": float((stop-start)/CONFIG["trading_days"]),
+        "maximum_gap_pct": float(np.max(np.abs(np.expm1(values)))*100),
+        "ongoing": stop == len(smooth),
+    }
+
+
+def analyze_winner(history):
+    fit = weighted_fit(history)
+    dates, prices = fit["dates"], fit["prices"]
+    years = float(fit["t"][-1])
+    has_mean = years >= CONFIG["minimum_history_years"]
+    growth = float(np.expm1(fit["slope"]))
+    excursions = weighted_excursions(fit["residual"], fit["weights"], dates) if has_mean else []
+    longest = max(excursions, key=lambda e: e["size"]) if excursions else None
+    area = longest["size"] if longest else None
+    pull = 1/(1+area/CONFIG["pull_scale"]) if area is not None else None
+    if not has_mean:
+        verdict = "NO MEAN YET — not a winner"
+    elif pull < CONFIG["minimum_pull"]:
+        verdict = "NO RELIABLE MEAN — not a winner"
+    elif growth < CONFIG["minimum_growth"]:
+        verdict = "NOT A GROWTH STOCK — not a winner"
+    else:
+        verdict = "WINNER"
+    winner = verdict == "WINNER"
+    raw = {
+        "steel": float(growth*pull*(1+fit["swing"])) if winner else 0.,
+        "paper": float(growth*pull/(1+CONFIG["paper_penalty"]*fit["swing"])**
+                       CONFIG["paper_exponent"]) if winner else 0.,
+    }
+    gaps = np.expm1(fit["residual"])
+    strength = ("Strong" if pull >= CONFIG["strong_pull"] else
+                "Moderate" if pull >= CONFIG["minimum_pull"] else "Weak") if has_mean else "Unavailable"
+    return {
+        "symbol": history["symbol"], "years": years, "has_mean": has_mean,
+        "origin": dates[0].date().isoformat(), "last_date": dates[-1].date().isoformat(),
+        "slope": fit["slope"], "intercept": fit["intercept"],
+        "growth": growth, "slope_pct": growth*100,
+        "swing": fit["swing"], "volatility": fit["volatility"], "drift": fit["drift"],
+        "longest_excursion": area, "pull": pull, "pull_strength": strength,
+        "excursions": excursions, "largest_excursion": longest,
+        "winner": winner, "verdict": verdict, "raw_scores": raw,
+        "scores": {"steel": None, "paper": None} if winner else dict(raw),
+        "position_pct": float(gaps[-1]*100),
+        "percentile": float(100*np.mean(gaps <= gaps[-1]+1e-12)),
+        "historical_gaps": gaps.tolist(),
+        "trend_dates": dates.strftime("%Y-%m-%d").tolist() if has_mean else [],
+        "trend_prices": np.exp(fit["intercept"]+fit["slope"]*fit["t"]).tolist() if has_mean else [],
+        "deep_dip": bool(has_mean and fit["residual"][-1] < -CONFIG["buy_zone_sigmas"]*fit["swing"]),
+        "range_tradeable": bool(has_mean and not winner and
+                               pull >= CONFIG["strong_pull"] and growth >= CONFIG["range_minimum_growth"]),
     }
 
 
 def normalize_scores(analysis, references=None):
-    """Scores are absolute formulas; no ticker/reference-set normalization."""
-    return dict(analysis["scores"])
+    """Normalize against the complete, fixed reference set, never a partial set."""
+    if not analysis["winner"]:
+        return dict(analysis["raw_scores"])
+    by_symbol = {a["symbol"]: a for a in references or []}
+    if not all(symbol in by_symbol for symbol in CONFIG["reference_symbols"]):
+        return {"steel": None, "paper": None}
+    result = {}
+    for key, score in analysis["raw_scores"].items():
+        denominator = max(by_symbol[s]["raw_scores"][key] for s in CONFIG["reference_symbols"])
+        result[key] = min(100., 100*score/denominator) if denominator > 0 else None
+    return result
 
 
 def fit_winner_channel(history, end_date=None):
-    """Plot each day's excluded-close rolling fit and extend only the latest fit."""
-    dates, prices = _history_arrays(history)
-    analysis = analyze_winner(history)
-    last = dates[-1]
-    end = max(last, pd.Timestamp(end_date).normalize() if end_date else last + pd.DateOffset(years=1))
-    log_returns = np.diff(np.log(prices))
-    result = {
-        "symbol": history["symbol"], "dates": history["dates"], "prices": history["prices"],
-        "latest_price": float(prices[-1]), "last_date": last.date().isoformat(),
-        "projection_end": end.date().isoformat(), "origin": analysis["origin"],
-        "observations": len(prices), "source": history.get("source", "Adjusted daily closes"),
-        "drift": float(np.mean(log_returns)*CONFIG["trading_days"]) if len(prices) >= 30 else None,
-        "volatility": float(np.std(log_returns, ddof=1)*np.sqrt(CONFIG["trading_days"])) if len(prices) >= 30 else None,
-        "line_dates": [], "lines": {"upper": [], "median": [], "lower": []},
-        "lower_buy_zone": [], "has_mean": analysis["has_mean"],
-    }
-    if not analysis["has_mean"]:
-        return result
-    historical = pd.DatetimeIndex(pd.to_datetime(analysis["trend_dates"]))
-    future = pd.date_range(last, end, freq="7D").union(pd.DatetimeIndex([end]))
-    future = future[future > last]
-    future_log = analysis["intercept"] + analysis["slope"]*np.asarray(
-        (future-dates[0]).days, dtype=float)/CONFIG["calendar_days"]
-    trend_log = np.r_[np.log(analysis["trend_prices"]), future_log]
-    sigma = np.r_[analysis["trend_sigmas"], np.full(len(future), analysis["swing"])]
-    offset = CONFIG["band_sigmas"]*sigma
-    result.update({
-        "line_dates": historical.append(future).strftime("%Y-%m-%d").tolist(),
-        "lines": {"upper": np.exp(trend_log+offset).tolist(),
-                  "median": np.exp(trend_log).tolist(), "lower": np.exp(trend_log-offset).tolist()},
-        "lower_buy_zone": (np.exp(trend_log)*(1-CONFIG["band_fraction"])).tolist(),
-        "slope": analysis["slope"], "slope_pct": analysis["slope_pct"],
-        "intercepts": {"upper": analysis["intercept"]+CONFIG["band_sigmas"]*analysis["swing"],
-                       "median": analysis["intercept"],
-                       "lower": analysis["intercept"]-CONFIG["band_sigmas"]*analysis["swing"]},
-        "position_pct": analysis["position_pct"],
-    })
-    return result
+    """Compatibility entry point using the same fixed weighted chart as the UI."""
+    from mean_reversion_channels import fit_channel
+    return fit_channel(history, end_date)

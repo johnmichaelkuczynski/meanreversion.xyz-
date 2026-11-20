@@ -9,6 +9,7 @@ import math
 import numpy as np
 import pandas as pd
 from scipy.special import log_ndtr, ndtr
+from mean_reversion_weights import weighted_fit
 
 
 CHANNELS = (
@@ -31,7 +32,7 @@ def _calendar_day(value):
 
 
 def fit_channel(history, end_date=None):
-    """OLS log slope; median/min/max intercepts, matching SOXL auto channels."""
+    """Weighted straight log mean; parallel full-history envelope lines."""
     prices = np.asarray(history["prices"], dtype=float)
     dates = pd.DatetimeIndex(pd.to_datetime(history["dates"], utc=True)).tz_localize(None).normalize()
     if len(prices) != len(dates) or len(prices) < 2:
@@ -43,15 +44,12 @@ def fit_channel(history, end_date=None):
     origin = dates[0]
     years = np.asarray((dates - origin).days, dtype=float) / YEAR_DAYS
     log_prices = np.log(prices)
-    centered = years - years.mean()
-    denominator = float(centered @ centered)
-    if denominator <= 0:
-        raise ValueError("Two distinct dates are needed for trend lines.")
-    slope = float(centered @ (log_prices - log_prices.mean()) / denominator)
+    fit = weighted_fit(history)
+    slope = fit["slope"]
     intercepts = log_prices - slope * years
     offsets = {
         "upper": float(np.max(intercepts)),
-        "median": float(np.median(intercepts)),
+        "median": fit["intercept"],
         "lower": float(np.min(intercepts)),
     }
     last = dates[-1]
@@ -73,9 +71,7 @@ def fit_channel(history, end_date=None):
         if not np.all(np.isfinite(values) & (values > 0)):
             raise ValueError("The selected projection date exceeds the fitted price range.")
         lines[kind] = values.tolist()
-    log_returns = np.diff(log_prices)
-    volatility = float(np.std(log_returns, ddof=1) * np.sqrt(252)) if len(prices) >= 30 else None
-    drift = float(np.mean(log_returns) * 252) if len(prices) >= 30 else None
+    volatility, drift = fit["volatility"], fit["drift"]
     latest_trend_log = offsets["median"] + slope * years[-1]
     return {
         "symbol": history["symbol"],

@@ -5,7 +5,7 @@ from mean_reversion_winner import analyze_winner
 from test_mean_reversion_winner import history
 
 
-def test_dated_position_uses_that_days_fit_not_the_latest_fit():
+def test_dated_position_uses_the_same_fixed_weighted_mean():
     h = history()
     a = analyze_winner(h)
     selected = date.fromisoformat(a["trend_dates"][200])
@@ -13,8 +13,7 @@ def test_dated_position_uses_that_days_fit_not_the_latest_fit():
     assert day == selected.isoformat()
     assert gap == pytest.approx(a["historical_gaps"][200]*100)
     assert 0 <= percentile <= 100
-    with pytest.raises(ValueError):
-        dated_position(h, a, date.fromisoformat(h["dates"][0]))
+    assert dated_position(h, a, date.fromisoformat(h["dates"][0]))[0] == h["dates"][0]
 
 
 def test_key_facts_and_dip_are_separate_one_line_each():
@@ -22,8 +21,8 @@ def test_key_facts_and_dip_are_separate_one_line_each():
     a = analyze_winner(h)
     position = dated_position(h, a, date.fromisoformat(h["dates"][-1]))
     facts = dict(summary_lines(a, a["scores"], position))
-    for key in ("Mean Reversion Score", "Closeness", "Recovery score",
-                "Median annualized trend slope", "Positive year-end slopes",
+    for key in ("Pull", "Weighted excursion size L", "Weighted swing W",
+                "Mean trend growth", "Weighted annualized volatility",
                 "Steel hands score", "Paper hands score", "Deep-dip flag"):
         assert key in facts
     assert "\n" not in "".join(facts.values())
@@ -32,17 +31,18 @@ def test_key_facts_and_dip_are_separate_one_line_each():
     assert dict(summary_lines(a, a["scores"], position))["Deep-dip flag"] == "YES"
 
 
-def test_insufficient_recovery_uses_closeness_not_missing_or_zero_score():
+def test_mean_hugging_series_has_strong_pull_without_crossing_count_gate():
     h = history(width=.001)
     a = analyze_winner(h)
     facts = dict(summary_lines(a, a["scores"], dated_position(h, a, date.fromisoformat(h["dates"][-1]))))
-    assert facts["Recovery score"] == "Insufficient recovery history"
-    assert a["mean_reversion_score"] == 100
+    assert facts["Pull"].startswith("Strong")
+    assert a["pull"] > .99
+    assert not any("recovery" in label.lower() for label in facts)
 
 
 def test_insufficient_trend_history_is_explicit():
     a = analyze_winner(history(years=4))
-    assert "five preceding years" in dict(summary_lines(a, a["scores"], None))["Trend"]
+    assert "five years" in dict(summary_lines(a, a["scores"], None))["Trend"]
 
 
 def test_priority_readout_escapes_identity_and_keeps_unavailable_facts_explicit():
@@ -59,7 +59,7 @@ render_stock_readout({"symbol": "<BAD>"}, "<script>untrusted</script>", None, No
     assert "&lt;script&gt;untrusted&lt;/script&gt;" in facts
     assert "<script>untrusted</script>" not in facts
     assert "Verdict: UNAVAILABLE" in facts
-    assert "Mean-reverting: Insufficient" in facts
+    assert "Pull: Insufficient" in facts
     assert "Annualized slope: Insufficient" in facts
 
 

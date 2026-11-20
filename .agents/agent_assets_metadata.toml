@@ -824,3 +824,31 @@ mtime_ms = 1795192678645
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:b0d92c61-69e9-4427-b00c-62f99328260c/b53a6117-3f63-4efb-8947-1e58012b1331/b1960672-d5d0-424f-820d-b7da759c1943"
 storage_version_token = "1795192734130362"
 content_type = "image/jpeg"
+
+[[outputs]]
+id = "0GFCpG4XkRVLmDeU3VKtf"
+uri = "file://generated-artifacts/mean-reversion-weighted-regression.csv"
+type = "table"
+title = "Weighted Mean Reversion — full results table"
+description = "17 securities through November 19, 2026: weighted slope, W, L, Pull, volatility, both scores, position, verdict, and reference-check status."
+logical_id = "b2a90609-ec6a-4020-acaf-3e7f6c64a89d"
+content_hash = "sha256:deed39b82e470359950d0f2b139fbc18b792c3a74304221bffd93207d181e568"
+size = 3901
+mtime_ms = 1795195626541
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:b0d92c61-69e9-4427-b00c-62f99328260c/b2a90609-ec6a-4020-acaf-3e7f6c64a89d/bc9a2189-63f4-494c-a795-8ae3d3055bea"
+storage_version_token = "1795196023080881"
+content_type = "text/csv"
+
+[[outputs]]
+id = "--88BKTJSYONqZuruoF-j"
+uri = "file://generated-artifacts/mean-reversion-weighted-regression.txt"
+type = "text"
+title = "Weighted Mean Reversion — calculations and checks"
+description = "Full computed table, exact calculation conventions, matching supplied references, and explicit limits on certification."
+logical_id = "34428f7f-de79-4939-980f-7d2ad72f525e"
+content_hash = "sha256:3657ffbccc00d763ea77cf7eeaca92da48b8f0e54207666c18ac5cbf5c15a0df"
+size = 5128
+mtime_ms = 1795195626541
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:b0d92c61-69e9-4427-b00c-62f99328260c/34428f7f-de79-4939-980f-7d2ad72f525e/6b906796-1f01-4c38-8ed0-fa1f757fa60d"
+storage_version_token = "1795196023663541"
+content_type = "text/plain"
