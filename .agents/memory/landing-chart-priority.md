@@ -30,9 +30,12 @@ initialization. Preserve deliberate removal, but allow the SOXL example to be re
 Keep the primary ticker and company name prominent at the top beside an obvious
 ticker-entry form. Put each key fact on its own line: whether mean reverting,
 whether the mean rises, annual trend growth, scores, and dated above/below-mean distance.
+WINNER / NOT A WINNER and its ticker must be the first, large readout, above
+the app heading, ticker form, chart, and detailed scores.
 
 **Why:** The user explicitly rejected paragraphs and buried facts, asking for
 "ONE LINE; ONE DATUM" so visitors need not search.
+The user separately required the winner verdict at the very top.
 
 **How to apply:** Both ticker forms must replace the same primary stock and
 update the heading and facts together. Label the actual price-observation date.

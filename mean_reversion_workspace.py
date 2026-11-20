@@ -408,6 +408,7 @@ def _render_winner_analysis(primary, reading):
 @st.fragment
 def render_mean_reversion_workspace():
     """Render the independent Mean Reversion stock-analysis workspace."""
+    verdict_slot = st.empty()
     st.title("Mean Reversion")
     st.caption("Price history, long-run channel, and date-specific target estimates.")
     with st.form("mr_replace_primary_top_form"):
@@ -429,6 +430,14 @@ def render_mean_reversion_workspace():
 
     primary = st.session_state.get(_PRIMARY)
     reading = _winner_reading(primary) if primary else (None, None, [])
+    if primary and reading[0] is not None:
+        verdict = "WINNER" if reading[0]["winner"] else "NOT A WINNER"
+        color = "#527b5d" if reading[0]["winner"] else "#a25e4b"
+        verdict_slot.markdown(
+            f"<div style='font-size:44px;font-weight:800;line-height:1.15;"
+            f"color:{color};margin-bottom:16px'>{verdict} — {primary['symbol']}</div>",
+            unsafe_allow_html=True,
+        )
     if primary and reading[0] is not None:
         render_stock_readout(primary, _cached_company_name(primary["symbol"]),
                              reading[0], reading[1])

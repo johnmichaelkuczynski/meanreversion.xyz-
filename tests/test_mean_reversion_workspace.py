@@ -50,6 +50,7 @@ def test_soxl_and_three_lines_load_without_input():
     app = AppTest.from_string(SCRIPT, default_timeout=15).run()
     assert not app.exception
     assert app.title[0].value == "Mean Reversion"
+    assert "WINNER — SOXL" in app.markdown[0].value
     assert app.header[0].value == "SOXL — SOXL security"
     assert any(h.value == "SOXL · Mean Reversion" for h in app.header)
     assert len(app.get("plotly_chart")) == 1
@@ -196,6 +197,8 @@ def test_top_readout_has_identity_individual_facts_scores_and_selected_date():
     next(b for b in app.button if b.label == "Replace primary").click().run()
     assert not app.exception
     assert app.header[0].value == "AAPL — Apple Inc."
+
+
     assert app.text_input[0].label == "Enter stock ticker"
     values = [m.value for m in app.markdown]
     assert any(v.startswith("**Mean reverting: Yes") for v in values)
@@ -207,3 +210,18 @@ def test_top_readout_has_identity_individual_facts_scores_and_selected_date():
     assert not app.exception
     assert any(m.value.startswith("**Position on 2025-11-14:") for m in app.markdown)
     assert app.header[0].value == "AAPL — Apple Inc."
+
+
+def test_nonwinner_verdict_is_the_first_page_fact_and_tracks_replacement():
+    script = SCRIPT.replace(
+        'values = np.exp(4 + .002*np.arange(1512) + .1*np.sin(np.arange(1512)/10))',
+        'values = np.full(1512, 100.) if symbol == "KO" else np.exp(4 + .002*np.arange(1512) + .1*np.sin(np.arange(1512)/10))',
+    )
+    app = AppTest.from_string(script, default_timeout=15).run()
+    assert "WINNER — SOXL" in app.markdown[0].value
+    app.text_input("mr_workspace_top_primary_input").input("KO")
+    next(b for b in app.button if b.label == "Replace primary").click().run()
+    assert not app.exception
+    assert "NOT A WINNER — KO" in app.markdown[0].value
+    assert "font-size:44px" in app.markdown[0].value
+    assert "SOXL" not in app.markdown[0].value
