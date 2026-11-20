@@ -10,7 +10,7 @@ CONFIG = MappingProxyType({
     "trading_days": 252,
     "half_life_years": 7.,
     "minimum_history_years": 5.,
-    "minimum_growth": .12,
+    "minimum_growth": .06,
     "pull_scale": 8.,
     "minimum_pull": .5,
     "strong_pull": .8,
