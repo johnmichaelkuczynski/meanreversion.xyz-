@@ -1,6 +1,8 @@
 """Neutral presentation for operational messages; no warning-colored panels."""
 
 CLEAN_NOTICE_STYLE = """<style>
+/* Also reaches an already-open document when its Streamlit session reconnects. */
+#soxl-preview-recovery { display: none !important; }
 [data-testid="stAlert"],
 [data-testid="stAlert"] > div,
 [data-testid="stAlertContainer"] {

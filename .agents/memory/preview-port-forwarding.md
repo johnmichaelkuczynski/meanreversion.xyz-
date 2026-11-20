@@ -27,3 +27,13 @@ and prevented the app from rendering.
 **How to apply:** Preserve validated public authority through both proxy layers.
 Keep unrelated origins rejected and preserve cookies/XSRF protections; do not
 solve the mismatch by disabling origin checks globally.
+
+Do not show a chart recovery/reopen overlay or ask the user to reopen a chart.
+A disconnect must not cover content that has already loaded.
+
+**Why:** The user explicitly rejected the recovery card and its manual reopen
+action after it obscured a successfully rendered Mean Reversion page.
+
+**How to apply:** Leave connection recovery to Streamlit without a custom
+blocking prompt, forced reload, or navigation that could discard chart state.
+Remove legacy recovery cards in already-open pages as well as new sessions.
