@@ -47,20 +47,20 @@ def paid_access_for_current_user(force=False):
 
 
 def _purchase_sign_in():
-    st.info("Account sign-in is unavailable. All app features remain available without an account.")
+    st.info("Sign in with Google at the top of the welcome page to continue.")
 
 @st.dialog("Buy full access")
 def show_purchase_options():
     try:
         if is_owner(get_current_user()):
-            st.success("Permanent owner access is active. Unlimited app credits. No payment or renewal is required.")
+            st.success("Administrator access is active. No payment or renewal is required.")
             return
         plan = get_plan()
         price = _price_label(plan)
         st.write(f"{plan['name']} · {price} one-time payment")
         st.caption("No recurring subscription. Stripe handles payment and calculates any applicable tax at checkout.")
         if is_development_preview():
-            st.info("The preview does not take payments. All app features remain available without an account.")
+            st.info("Development access is free. Payments are disabled in the preview.")
             st.link_button("Open published site to buy", public_origin() + "/?checkout=buy",
                            type="primary", width="stretch")
             return
@@ -135,8 +135,8 @@ def _handle_checkout_return():
 
 def render_account_header():
     flush_analytics()
-    # Public investor access: do not require identity, query billing, or launch
-    # checkout from legacy query parameters. Existing purchase records remain.
+    # The shared entry gate already verified identity and access. Do not create
+    # a second checkout or payment decision while rendering the app header.
     logo = Path(__file__).resolve().parent / "assets" / "zhi_uploaded_mark.png"
     logo_markup = (
         f'<img src="data:image/png;base64,{base64.b64encode(logo.read_bytes()).decode("ascii")}" '

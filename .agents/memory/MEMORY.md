@@ -11,7 +11,7 @@
 - [Chart interaction default](chart-interaction-default.md) — start in pan/navigation mode; drawing must be explicitly enabled.
 - [Overnight market data](overnight-market-data.md) — isolate refreshes from the drawing chart and distinguish pre/post-market coverage from continuous overnight trading.
 - [Stripe account ownership](stripe-account-ownership.md) — use only the owner's keys directly; do not create or modify account settings, products, or prices.
-- [Public investor access](public-investor-access.md) — all product features available anonymously; no login or payment walls.
+- [Production access policy](public-investor-access.md) — Google plus verified payment required; ADMIN_EMAILS bypasses all billing; development stays unrestricted.
 - [Options projection assumptions](options-projection-assumptions.md) — conditional option scenarios, not calibrated odds; missing market inputs must remain explicit.
 - [Streamlit analytics semantics](streamlit-analytics-semantics.md) — eager tab rendering is not a feature view; preserve verified outcome events across reruns.
 - [Streamlit background ownership](streamlit-background-ownership.md) — session-state proxy identity is not per-user; scope research jobs and completion handoffs explicitly.

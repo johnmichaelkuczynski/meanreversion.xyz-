@@ -107,6 +107,28 @@ That is not evidence of a successful Google-account login.
 | `GOOGLE_CLIENT_ID` | Yes | Your Google OAuth web client ID. |
 | `GOOGLE_CLIENT_SECRET` | Yes | The secret for that same client. |
 
+## Application access and administrator exemption
+
+Both production app pages require Google sign-in and verified paid access.
+The welcome/readme remains public; the analysis workspaces do not.
+
+Set `ADMIN_EMAILS` to the comma-separated administrator email allowlist in the
+actual server's environment. Matching ignores case and surrounding whitespace.
+Only authenticated, verified Google identities qualify. Administrators skip
+all checkout, payment verification, paywalls and app quotas; no administrator
+address is built into application code.
+
+Set this variable in Coolify as well as the workspace when deploying there:
+workspace environment settings do not configure an external server. Checkout
+is disabled if the administrator allowlist is empty, preventing accidental
+payment prompts while access configuration is incomplete.
+
+Development previews remain automatically signed in and do not charge users.
+Non-admin paid access is tied to the authenticated account, not URL parameters.
+The configured `STRIPE_PRICE_ID` must be an existing price accessible with the
+configured Stripe account key. This change does not create or alter Stripe
+products, prices or webhooks.
+
 ## Legacy Stripe configuration
 
 

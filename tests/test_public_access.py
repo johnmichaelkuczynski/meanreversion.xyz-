@@ -3,15 +3,16 @@ import access
 import account_header
 
 
-def test_all_features_available_to_anonymous_production_visitors():
+def test_all_features_require_identity_and_verified_payment():
     guest = {"is_logged_in": False}
     for feature in (*access.PAID_FEATURES, "Talk with SOXL Pro"):
-        assert access.can_access(feature, guest, paid_verified=False, preview=False)
+        assert not access.can_access(feature, guest, paid_verified=False, preview=False)
     dialog = Mock()
-    for feature in access.PAID_FEATURES:
-        assert access.require_paid_access(
-            feature, guest, dialog, paid_verified=False, preview=False)
-    dialog.assert_not_called()
+    with patch.object(access, "render_paid_gate") as gate:
+        for feature in access.PAID_FEATURES:
+            assert not access.require_paid_access(
+                feature, guest, dialog, paid_verified=False, preview=False)
+        assert gate.call_count == len(access.PAID_FEATURES)
 
 
 def test_public_header_never_calls_login_billing_or_checkout():

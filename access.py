@@ -1,10 +1,4 @@
-"""Small, server-backed access policy for the SOXL app.
-
-The account header is the only place that verifies billing.  This module only
-interprets that result for rendering; it never reads query parameters, asks
-the billing provider for access, or treats a client-controlled value as an
-identity.
-"""
+"""Server-backed access policy shared by both protected application pages."""
 from __future__ import annotations
 
 import re
@@ -12,10 +6,11 @@ from typing import Any, Callable, Mapping
 
 import streamlit as st
 
-from auth import get_current_user, is_development_preview, is_owner
+from auth import get_current_user, is_development_preview, is_owner, is_verified_google_user
 
 
 PAID_ACCESS_SESSION_KEY = "_paid_access_verified"
+PAID_SUBJECT_SESSION_KEY = "_paid_access_subject"
 
 GUEST = "guest"
 SIGNED_IN = "signed_in"
@@ -27,9 +22,7 @@ def has_unlimited_credits(user=None) -> bool:
     """Permanent exemption from application credit quotas, not provider billing."""
     return is_owner(user)
 
-# These are the paid entry points.  Chart/probability/snapshot rendering and
-# diagnostics intentionally do not appear here and remain available under
-# their existing rules.
+# Named feature gates within the globally protected application.
 PAID_FEATURES = frozenset(
     {
         "Vol Surface",
@@ -52,29 +45,29 @@ def access_tier(
     paid_verified: bool | None = None,
     preview: bool | None = None,
 ) -> str:
-    """Resolve to ``guest``, ``signed_in``, ``paid``, or permanent ``owner``.
-
-    ``paid_verified`` is deliberately an explicit server result.  When it is
-    omitted, the value written by ``render_account_header`` is used.  Preview
-    is full access only while the preview's authenticated user is logged in;
-    the preview sign-out control therefore correctly returns to guest access.
-    """
+    """Use trusted identity plus an account-bound, server-verified entitlement."""
     if user is None:
         user = get_current_user()
 
     if not _logged_in(user):
         return GUEST
 
-    if is_owner(user):
-        return OWNER
-
     if preview is None:
         preview = is_development_preview()
     if preview:
         return PAID
 
+    if not is_verified_google_user(user):
+        return GUEST
+    if is_owner(user):
+        return OWNER
+
     if paid_verified is None:
-        paid_verified = st.session_state.get(PAID_ACCESS_SESSION_KEY, False)
+        paid_verified = (
+            st.session_state.get(PAID_ACCESS_SESSION_KEY, False) is True
+            and st.session_state.get(PAID_SUBJECT_SESSION_KEY) == str(user["sub"])
+            and st.session_state.get("_paid_access_source") == "payment"
+        )
     return PAID if paid_verified is True else SIGNED_IN
 
 
@@ -84,8 +77,8 @@ def has_paid_access(
     paid_verified: bool | None = None,
     preview: bool | None = None,
 ) -> bool:
-    """All product features are public for the investor presentation."""
-    return True
+    """Require verified payment or an administrator exemption in production."""
+    return access_tier(user, paid_verified=paid_verified, preview=preview) in {PAID, OWNER}
 
 
 def can_use_market_chat(
@@ -94,8 +87,7 @@ def can_use_market_chat(
     paid_verified: bool | None = None,
     preview: bool | None = None,
 ) -> bool:
-    """Market chat is available anonymously."""
-    return True
+    return has_paid_access(user, paid_verified=paid_verified, preview=preview)
 
 
 def can_access(
@@ -105,20 +97,8 @@ def can_access(
     paid_verified: bool | None = None,
     preview: bool | None = None,
 ) -> bool:
-    """Return whether a session can access a named feature.
-
-    Unknown features are not silently made paid.  Existing app surfaces that
-    are intentionally outside the paid list remain unaffected by this helper.
-    """
-    if feature in PAID_FEATURES:
-        return has_paid_access(
-            user, paid_verified=paid_verified, preview=preview
-        )
-    if feature == "Talk with SOXL Pro":
-        return can_use_market_chat(
-            user, paid_verified=paid_verified, preview=preview
-        )
-    return True
+    """All app features follow the same server-side entitlement policy."""
+    return has_paid_access(user, paid_verified=paid_verified, preview=preview)
 
 
 def _button_key(feature: str) -> str:

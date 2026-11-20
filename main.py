@@ -2,13 +2,24 @@
 import streamlit as st
 
 from clean_presentation import apply_clean_presentation
-from mean_reversion_workspace import render_mean_reversion_workspace
 from zhi_branding import render_zhi_branding
 from auth import render_google_login
+from site_gate import require_site_access
 
 
 st.set_page_config(page_title="Mean Reversion", layout="wide")
 apply_clean_presentation()
+
+branding, account = st.columns([4, 2], vertical_alignment="center")
+with branding:
+    render_zhi_branding()
+with account:
+    render_google_login()
+if not require_site_access():
+    st.stop()
+
+# Do not import or execute application workspaces before the shared gate.
+from mean_reversion_workspace import render_mean_reversion_workspace
 
 page = st.navigation(
     [
@@ -17,9 +28,4 @@ page = st.navigation(
     ],
     position="top",
 )
-branding, account = st.columns([4, 2], vertical_alignment="center")
-with branding:
-    render_zhi_branding()
-with account:
-    render_google_login()
 page.run()

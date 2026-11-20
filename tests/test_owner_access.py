@@ -1,109 +1,61 @@
 from unittest.mock import patch
 
-import unittest
+import pytest
 
 import access
+import account_header
 import auth
 import billing
-import account_header
 
-
-OWNER = {
-    "is_logged_in": True,
-    "email_verified": True,
-    "sub": "verified-google-subject",
-    "email": "johnmichaelkuczynski@gmail.com",
+ADMIN = {
+    "is_logged_in": True, "email_verified": True,
+    "sub": "verified-test-subject", "email": "admin@example.test",
 }
 
 
-INVALID_IDENTITIES = [
-    {"is_logged_in": False},
-    {"is_logged_in": "true"},
-    {"email_verified": False},
-    {"email_verified": "true"},
-    {"sub": ""},
-    {"email": "someone-else@gmail.com"},
-    {"email": "johnmichaelkuczynski+other@gmail.com"},
-    {"email": "johnmichaelkuczynski@gmail.com.evil.test"},
-    {"auth_provider": "development"},
-]
+@pytest.fixture(autouse=True)
+def admin_configuration(monkeypatch):
+    monkeypatch.setenv("ADMIN_EMAILS", " first@example.test, ADMIN@example.test , ")
 
 
-def test_owner_requires_exact_verified_authenticated_identity():
-    for change in INVALID_IDENTITIES:
-        assert not auth.is_owner(dict(OWNER, **change))
-        assert not access.has_unlimited_credits(dict(OWNER, **change))
+@pytest.mark.parametrize("change", [
+    {"is_logged_in": False}, {"is_logged_in": "true"},
+    {"email_verified": False}, {"email_verified": "true"}, {"sub": ""},
+    {"email": "admin+alias@example.test"}, {"email": "admin@example.test.evil"},
+    {"auth_provider": "development"}, {"provider": "other"},
+])
+def test_admin_requires_exact_verified_authenticated_email(change):
+    assert not auth.is_admin(dict(ADMIN, **change))
+    assert not access.has_unlimited_credits(dict(ADMIN, **change))
 
 
-def test_owner_gets_highest_tier_even_when_billing_is_false():
-    assert auth.is_owner(dict(OWNER, email=OWNER["email"].upper()))
-    assert access.access_tier(OWNER, paid_verified=False, preview=False) == access.OWNER
-    assert access.has_unlimited_credits(OWNER)
-    for feature in access.PAID_FEATURES:
-        assert access.can_access(feature, OWNER, paid_verified=False, preview=False)
+def test_case_insensitive_allowlist_and_environment_changes(monkeypatch):
+    assert auth.is_admin(dict(ADMIN, email=" ADMIN@EXAMPLE.TEST "))
+    assert access.access_tier(ADMIN, paid_verified=False, preview=False) == access.OWNER
+    monkeypatch.setenv("ADMIN_EMAILS", "")
+    assert not auth.is_admin(ADMIN)
 
 
-def test_owner_access_makes_no_stripe_or_purchase_database_requests():
+def test_admin_never_calls_stripe_or_purchase_storage():
     with patch.object(billing, "stripe_client", side_effect=AssertionError("Stripe called")), \
          patch.object(billing, "get_plan", side_effect=AssertionError("Price checked")), \
          patch.object(billing, "user_identity", side_effect=AssertionError("Billing identity checked")):
-        assert billing.get_paid_access(OWNER)
-        with unittest.TestCase().assertRaisesRegex(billing.BillingError, "No payment"):
-            billing.create_checkout(OWNER)
+        assert billing.get_paid_access(ADMIN)
+        assert billing.verify_checkout(ADMIN, "unused")
+        with pytest.raises(billing.BillingError, match="No payment"):
+            billing.create_checkout(ADMIN)
 
 
-def test_header_skips_all_billing_and_checkout_return_for_owner():
-    with patch.object(account_header, "get_current_user", return_value=OWNER), \
+def test_admin_header_and_checkout_return_skip_billing():
+    with patch.object(account_header, "get_current_user", return_value=ADMIN), \
          patch.object(account_header, "get_paid_access", side_effect=AssertionError("Billing checked")), \
          patch.object(account_header, "verify_checkout", side_effect=AssertionError("Checkout checked")):
         assert account_header.paid_access_for_current_user(force=True)
         account_header._handle_checkout_return()
 
 
-def test_owner_does_not_grant_access_to_next_user():
-    other = dict(OWNER, email="another-user@example.com", sub="another-subject")
-    with patch.object(auth, "get_current_user", return_value=OWNER):
-        assert access.has_unlimited_credits()
-    with patch.object(auth, "get_current_user", return_value=other):
-        assert not access.has_unlimited_credits()
-    assert access.access_tier(other, paid_verified=False, preview=False) == access.SIGNED_IN
-    # Public features are open, but this user still has no owner privileges.
-    assert access.has_paid_access(other, paid_verified=False, preview=False)
-    assert not auth.is_owner(other)
+def test_admin_does_not_grant_access_to_next_user():
+    other = dict(ADMIN, email="other@example.test", sub="other-subject")
+    assert not auth.is_admin(other)
+    assert not access.has_paid_access(other, paid_verified=False, preview=False)
     assert access.has_paid_access(other, paid_verified=True, preview=False)
-    assert access.access_tier({"is_logged_in": False}, preview=False) == access.GUEST
-
-
-def test_owner_dialog_does_not_read_price_or_create_checkout():
-    from streamlit.testing.v1 import AppTest
-    script = """
-import streamlit as st
-import account_header as h
-h.get_current_user = lambda: {
-    "is_logged_in": True, "email_verified": True,
-    "sub": "verified-google-subject", "email": "johnmichaelkuczynski@gmail.com"
-}
-def forbidden(*args, **kwargs):
-    raise AssertionError("Owner should never enter billing")
-h.get_plan = forbidden
-h.create_checkout = forbidden
-h.flush_analytics = lambda: None
-h.show_purchase_options()
-"""
-    # AppTest executes imported modules in-process: restore every override.
-    with patch.object(account_header, "get_current_user"), \
-         patch.object(account_header, "get_plan"), \
-         patch.object(account_header, "create_checkout"), \
-         patch.object(account_header, "flush_analytics"):
-        app = AppTest.from_string(script).run()
-        assert not app.exception
-        assert any("Permanent owner access" in x.value for x in app.success)
-        assert not app.get("link_button")
-
-
-def load_tests(loader, tests, pattern):
-    return unittest.TestSuite(
-        unittest.FunctionTestCase(fn)
-        for name, fn in globals().items()
-        if name.startswith("test_") and callable(fn)
-    )

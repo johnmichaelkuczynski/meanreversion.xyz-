@@ -12,7 +12,7 @@ their own Stripe keys. Provider readiness must be checked with real requests,
 not inferred from the presence of environment variables.
 
 **How to apply:** Keep credentials server-side and use existing account
-configuration. Do not create or modify Stripe products, prices, portal settings,
+configuration. Do not create or modify Stripe products, prices, webhooks, portal settings,
 or account settings without specific permission. Approval to correct the
 software product's tax category was a narrow exception, not general permission
 to change the account or catalog. If required configuration is missing, report the exact

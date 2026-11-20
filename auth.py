@@ -1,5 +1,6 @@
 """Direct Google identity and automatic, workspace-only development access."""
 import os
+from collections.abc import Mapping
 
 import streamlit as st
 from google_oauth import configure_google_auth
@@ -26,22 +27,41 @@ def get_current_user():
     return dict(st.user)
 
 
-def is_owner(user=None):
-    """Only trusted, verified authentication claims can grant owner access.
+def admin_emails(environ=None):
+    env = os.environ if environ is None else environ
+    return frozenset(
+        value.strip().casefold()
+        for value in env.get("ADMIN_EMAILS", "").split(",")
+        if value.strip()
+    )
 
-    Callers must pass the server's authenticated identity, never form/query data.
-    Re-evaluate on every request so sign-out/account switching removes the grant.
-    """
-    user = get_current_user() if user is None else user
+
+def is_verified_google_user(user):
+    """Accept server-verified Google identity, never client-supplied claims."""
     return bool(
-        user
+        isinstance(user, Mapping)
         and user.get("is_logged_in") is True
         and user.get("email_verified") is True
         and user.get("sub")
-        and user.get("auth_provider") != "development"
-        and str(user.get("email", "")).strip().casefold()
-        == "johnmichaelkuczynski@gmail.com"
+        and str(user.get("email", "")).strip()
+        and user.get("auth_provider", "") in {"", "google", "google_oidc"}
+        and user.get("provider", "google") == "google"
     )
+
+
+def is_admin(user=None, *, environ=None):
+    """Re-read the allowlist on every check, including account switches."""
+    user = get_current_user() if user is None else user
+    return bool(
+        is_verified_google_user(user)
+        and str(user.get("email", "")).strip().casefold()
+        in admin_emails(environ)
+    )
+
+
+def is_owner(user=None):
+    """Compatibility name for the environment-configured administrator bypass."""
+    return is_admin(user)
 
 
 def render_development_status():
@@ -57,7 +77,7 @@ def render_google_login():
         configure_google_auth()
     except Exception:
         st.button("Sign in with Google", disabled=True, width="stretch")
-        st.caption("Google sign-in is not configured. You can still use the app.")
+        st.caption("Google sign-in is unavailable. App access requires Google sign-in.")
         return
     if st.user.is_logged_in:
         st.caption(f"Signed in as {st.user.get('name') or 'Google user'}")
@@ -68,4 +88,4 @@ def render_google_login():
         try:
             st.login("google")
         except Exception:
-            st.info("Google sign-in could not start. Your current app access remains available.")
+            st.info("Google sign-in could not start. Please try again.")

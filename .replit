@@ -48,3 +48,8 @@ exposeLocalhost = true
 integrations = ["python_anthropic_ai_integrations:1.0.0", "python_openai_ai_integrations:1.0.0"]
 stack = "STREAMLIT"
 expertMode = true
+
+[userenv]
+
+[userenv.shared]
+ADMIN_EMAILS = "johnmichaelkuczynski@gmail.com"
