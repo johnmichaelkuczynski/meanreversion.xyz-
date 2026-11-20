@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="panel.css">
+  <title>Mean Reversion chart</title>
+</head>
+<body>
+  <main id="workspace" class="workspace" aria-label="Stock price chart and trend readout">
+    <div id="plot-stage" class="plot-stage">
+      <div id="chart" class="chart" aria-label="Interactive stock price chart"></div>
+      <aside id="readout" class="readout is-docked" aria-label="Common-date trend readout">
+        <div id="drag-handle" class="drag-handle">
+          <div class="panel-heading">
+            <span class="panel-kicker">TRENDLINE COMPARISON</span>
+            <strong id="panel-symbol" class="panel-symbol">Stock</strong>
+            <span id="panel-date" class="panel-date">Selected date</span>
+          </div>
+          <span class="drag-indicator">Drag to move</span>
+        </div>
+        <div id="panel-actions" class="panel-actions" aria-label="Readout controls">
+          <button id="dock-button" class="panel-button panel-button-primary" type="button" aria-pressed="false">Float over chart</button>
+          <button id="pin-button" class="panel-button" type="button" aria-pressed="false">Pin</button>
+          <button id="return-button" class="panel-button" type="button">Return to selected date</button>
+          <button id="expand-button" class="panel-button" type="button" aria-pressed="false">Expand</button>
+          <button id="collapse-button" class="panel-button panel-button-quiet" type="button" aria-expanded="true">Collapse</button>
+          <button id="smaller-button" class="panel-button" type="button">Smaller</button>
+          <button id="larger-button" class="panel-button" type="button">Larger</button>
+        </div>
+        <div id="panel-body" class="panel-body">
+          <div id="band-rows" class="band-rows" aria-live="polite"></div>
+          <p id="qualification" class="qualification">Historical-model estimates. Resize from the corner or use the size controls.</p>
+        </div>
+        <div id="resize-handle" class="resize-handle" role="separator" tabindex="0" aria-label="Resize readout"></div>
+      </aside>
+      <div id="runtime-error" class="runtime-error" role="status" hidden>
+        The chart runtime could not be loaded. Refresh the workspace to retry.
+      </div>
+    </div>
+    <aside id="mobile-readout" class="mobile-readout" aria-label="Common-date trend readout"></aside>
+  </main>
+  <script src="/api/mean-reversion/plotly.js" onerror="window.__plotlyLoadFailed=true"></script>
+  <script src="panel.js"></script>
+</body>
+</html>

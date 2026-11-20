@@ -5,6 +5,10 @@ from tornado.web import Application, RequestHandler
 from tornado.httpserver import HTTPServer
 from tornado.netutil import bind_sockets
 import fast_gateway
+from tornado.testing import gen_test
+from tornado.websocket import WebSocketHandler, websocket_connect
+from tornado.httpclient import HTTPRequest
+import json
 
 
 class Upstream(RequestHandler):
@@ -115,3 +119,61 @@ class GatewayTests(AsyncHTTPTestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class EchoSocket(WebSocketHandler):
+    def select_subprotocol(self, protocols):
+        return "streamlit" if "streamlit" in protocols else None
+
+    def open(self, path):
+        self.write_message(json.dumps({
+            "host": self.request.host,
+            "origin": self.request.headers.get("Origin"),
+            "cookie_present": bool(self.request.headers.get("Cookie")),
+        }))
+
+    def on_message(self, message):
+        self.write_message(message, binary=isinstance(message, bytes))
+
+
+class GatewaySocketTests(AsyncHTTPTestCase):
+    def get_app(self):
+        sockets = bind_sockets(0, "127.0.0.1")
+        self.backend = HTTPServer(Application([(r"/(.*)", EchoSocket)]))
+        self.backend.add_sockets(sockets)
+        self.target = patch.object(fast_gateway, "BACKEND",
+                                   f"http://127.0.0.1:{sockets[0].getsockname()[1]}")
+        self.target.start()
+        return Application([(r"/(.*)", fast_gateway.Socket)])
+
+    def tearDown(self):
+        self.backend.stop()
+        self.target.stop()
+        super().tearDown()
+
+    @gen_test
+    async def test_forwarded_public_port_connects_and_preserves_cookies_and_messages(self):
+        public = "workspace.replit.dev"
+        request = HTTPRequest(self.get_url("/_stcore/stream").replace("http:", "ws:"),
+                              headers={"Host": public, "Origin": f"https://{public}:5000",
+                                       "Cookie": "fixture_cookie=present"})
+        connection = await websocket_connect(request, subprotocols=["streamlit"])
+        try:
+            response = json.loads(await connection.read_message())
+            self.assertEqual(response["host"], public + ":5000")
+            self.assertEqual(response["origin"], f"https://{public}:5000")
+            self.assertTrue(response["cookie_present"])
+            await connection.write_message(b"binary streamlit payload", binary=True)
+            self.assertEqual(await connection.read_message(), b"binary streamlit payload")
+        finally:
+            connection.close()
+
+    def test_unrelated_origins_remain_rejected(self):
+        allowed = fast_gateway.websocket_origin_allowed
+        self.assertFalse(allowed("https://attacker.example", "workspace.replit.dev"))
+        self.assertFalse(allowed("https://other.replit.dev:5000", "workspace.replit.dev"))
+        self.assertFalse(allowed("https://workspace.replit.dev:8000", "workspace.replit.dev:5000"))
+        self.assertFalse(allowed("https://workspace.replit.dev:8000", "workspace.replit.dev"))
+        self.assertFalse(allowed("https://meanreversion.xyz:5000", "meanreversion.xyz:443"))
+        self.assertTrue(allowed("https://meanreversion.xyz", "meanreversion.xyz"))
+        self.assertTrue(allowed("http://127.0.0.1:5000", "127.0.0.1:5000"))

@@ -27,18 +27,46 @@ what the function does; SOXL is the required illustrative default.
 **How to apply:** Do not treat a failed initial history request as a completed
 initialization. Preserve deliberate removal, but allow the SOXL example to be restored.
 
-Keep the primary ticker and company name prominent at the top beside an obvious
-ticker-entry form. Put each key fact on its own line: whether mean reverting,
-whether the mean rises, annual trend growth, scores, and dated above/below-mean distance.
-WINNER / NOT A WINNER and its ticker must be the first, large readout, above
-the app heading, ticker form, chart, and detailed scores.
+Put the active ticker and company name, WINNER / NOT A WINNER, whether mean
+reverting, whether the mean rises, annual slope, and dated above/below-mean
+distance at the absolute top in large black letters, one fact per line.
+Keep an obvious primary ticker input at the top and its duplicate below the chart.
+Do not displace these facts with a large generic app name, tagline, or blank space.
 
 **Why:** The user explicitly rejected paragraphs and buried facts, asking for
 "ONE LINE; ONE DATUM" so visitors need not search.
-The user separately required the winner verdict at the very top.
+The user repeatedly required the winner verdict and key stock facts at the very
+top, then explicitly requested big black letters and rejected the generic app
+name displacing them.
 
 **How to apply:** Both ticker forms must replace the same primary stock and
 update the heading and facts together. Label the actual price-observation date.
+
+Use three fixed, straight lines on the Mean Reversion log-price chart, like
+the SOXL channel, not bent rolling bands. Let the user extend them at least
+30 years and 100 years ahead. The displayed slope and above/below-mean distance
+must describe the same fixed mean that is drawn.
+
+**Why:** The user explicitly rejected bent lines that conform to price and
+repeated the requirement for straight lines and long user-controlled extension.
+
+**How to apply:** Keep this chart geometry separate from the walk-forward
+recovery scoring. Do not silently change the ranking formulas when changing
+the displayed channel.
+
+The Mean Reversion tricolor readout must be large and readable, like SOXL's,
+with explicit Price and Probability per line and Expand/Restore, Collapse/Show,
+and resize controls.
+
+**Why:** The user repeatedly rejected the tiny repeated native hover tooltip
+and explicitly requested all three size/visibility controls.
+They again rejected a panel covering the chart and repeated that it must be
+"resizable, collapsible, stretchable, movable".
+
+**How to apply:** Keep one shared-date readout for all three lines, and keep it
+reachable when the pointer moves from a line to its controls. Do not cover the
+chart by default. Make move, shrink, stretch, and collapse actions obvious and
+usable in a narrow embedded preview as well as a wide browser.
 
 Chart controls must start expanded and readable, with the header fully below the incline bar. Do not auto-shrink the panel to the small portion of the iframe visible when it first enters the viewport.
 

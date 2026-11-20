@@ -88,3 +88,14 @@ def test_channels_match_existing_soxl_log10_algorithm():
     for kind, intercept in [("upper", max(intercepts)), ("median", np.median(intercepts)),
                             ("lower", min(intercepts))]:
         assert model["lines"][kind][-1] == pytest.approx(10 ** (intercept + slope * duration))
+
+
+def test_very_distant_dates_do_not_require_pandas_nanosecond_range_or_daily_future_points():
+    from datetime import date
+    model = fit_channel(history(), "2400-01-01")
+    assert model["line_dates"][-1] == "2400-01-01"
+    assert len(model["line_dates"]) <= len(model["dates"])+2002
+    rows = channel_readout(model, date(2400, 1, 1))
+    for row in rows:
+        assert row["target_price"] == pytest.approx(model["lines"][row["kind"]][-1])
+        assert 0 <= row["hit_probability"] <= 1

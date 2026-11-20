@@ -21,7 +21,7 @@
 - [Hypothetical entry slider](hypothetical-entry-slider.md) — chosen price is a hypothetical entry, not a target-hit question; preserve the existing daily indicator.
 - [Mean reversion statistics](mean-reversion-statistics.md) — R/S on log increments; anti-persistence is not proof of profitable price-level reversion.
 - [Winner scoring contract](winner-logic-contract.md) — rolling five-year excluded-close trends, frozen recovery cohorts and shared growth verdict; disclose schematic failures without tuning.
-- [Landing chart priority](landing-chart-priority.md) — page 1 is Mean Reversion, with chart above ticker entry; all SOXL/SRH content is on separate page 2.
+- [Landing chart priority](landing-chart-priority.md) — large black stock facts and ticker input first; duplicate input below the chart; all SOXL/SRH content on page 2.
 - [Price scenario validation](price-scenario-validation.md) — observed entry closes cannot validate same-date counterfactual prices; retrospective holdouts are not prospective trials.
 - [K research integrity](k-research-integrity.md) — reused SOXL history is not a fresh holdout; retain failed and empty tied-rank comparisons rather than tuning them.
 - [Streamlit component actions](streamlit-component-action-echoes.md) — visual toggles stay browser-local; server actions use callbacks; verify updates reach already-open tabs.
@@ -30,4 +30,4 @@
 - [ARM64 Python wheels](arm64-python-wheels.md) — cross-platform pip builds need several compatible manylinux tags, not only the newest tag.
 - [Schwab market-data ownership](schwab-market-data.md) — use the owner's keys directly for Coolify portability; registered OAuth callback is on soxl.ai.
 - [Tiingo price feed](tiingo-price-feed.md) — active SOXL quotes use Tiingo; valid timestamped reference prices may have null entitlement-only trade fields.
-- [Preview port forwarding](preview-port-forwarding.md) — link to the HTTPS dev hostname without :5000; internal port 5000 is forwarded to the default web port.
+- [Preview port forwarding](preview-port-forwarding.md) — verify the user's exact selected address and rendered page; explicit :5000 validity depends on the external mapping.

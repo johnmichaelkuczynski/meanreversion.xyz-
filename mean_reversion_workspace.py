@@ -1,17 +1,18 @@
 """Chart-first stock research workspace for the Mean Reversion page."""
 
 from datetime import date, timedelta
+from html import escape
 import math
 
 import plotly.graph_objects as go
 import streamlit as st
 
-from mean_reversion_channels import CHANNELS, channel_readout, hit_probability
+from mean_reversion_channels import CHANNELS, channel_readout, hit_probability, fit_channel
+from mean_reversion_chart import render_channel_chart
 from mean_reversion_examples import render_illustrated_rankings
 from mean_reversion_readout import POSITION_DATE, render_stock_readout, render_score_details
 from mean_reversion_winner import (
     analyze_winner,
-    fit_winner_channel,
     normalize_scores,
 )
 from stock_chart_api import load_stock_history, load_stock_name, normalize_stock_symbol
@@ -45,12 +46,23 @@ def _cached_company_name(symbol):
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def _cached_channel(history, end_date):
-    return fit_winner_channel(history, end_date=end_date)
+    return fit_channel(history, end_date=end_date)
 
 
 def _load_history(symbol):
     symbol = normalize_stock_symbol(symbol)
-    return _cached_stock_history("AAPL" if symbol == "APPL" else symbol)
+    symbol = "AAPL" if symbol == "APPL" else symbol
+    history = _cached_stock_history(symbol)
+    if history.get("symbol") != symbol:
+        raise ValueError("The price feed returned a different ticker. Your chart was not replaced.")
+    return history
+
+
+def _replacement_error(input_key, reason):
+    requested = str(st.session_state.get(input_key, "")).strip().upper()[:30]
+    primary = st.session_state.get(_PRIMARY)
+    retained = f"Still showing {primary['symbol']}." if primary else "No stock is currently plotted."
+    return f"Could not load {requested or 'the entered ticker'}. {retained} {reason}"
 
 
 def _replace_primary(input_key=_PRIMARY_INPUT):
@@ -68,9 +80,9 @@ def _replace_primary(input_key=_PRIMARY_INPUT):
         st.session_state[_ERROR] = None
         st.session_state[input_key] = ""
     except ValueError as exc:
-        st.session_state[_ERROR] = str(exc)
+        st.session_state[_ERROR] = _replacement_error(input_key, str(exc))
     except Exception:
-        st.session_state[_ERROR] = "Could not load that stock. Your current chart is unchanged."
+        st.session_state[_ERROR] = _replacement_error(input_key, "Price history is unavailable.")
 
 
 def _add_comparison():
@@ -203,21 +215,23 @@ def _make_figure(primary, comparisons, model, readouts):
                 target = model["lines"][kind][index]
                 probability = (hit_probability(model, target, day)
                                if day >= model["last_date"] else None)
-                bits += [_price(target), _probability(probability)]
+                bits += [
+                    _price(target),
+                    (_probability(probability) if day >= model["last_date"]
+                     else "Historical date — not a forecast"),
+                ]
             custom.append(bits)
         for kind in ("upper", "median", "lower"):
+            if not model["line_dates"]:
+                continue
             fig.add_trace(go.Scatter(
                 x=model["line_dates"], y=model["lines"][kind], mode="lines",
-                name={"upper": "Upper band (+2σ)", "median": "Mean line (rolling OLS)", "lower": "Lower band (−2σ)"}[kind],
-                line={"color": _COLORS[kind], "width": 2, "dash": "dash" if kind != "median" else "solid"},
+                name={"upper": "Upper trend", "median": "Mean trend", "lower": "Lower trend"}[kind],
+                line={"color": _COLORS[kind], "width": 2, "dash": "solid"},
                 customdata=custom,
-                hovertemplate=(
-                    "%{customdata[0]} · %{fullData.name}: $%{y:,.2f}"
-                    "<br>Same-date targets · hit by or before this date:"
-                    "<br>Upper %{customdata[1]} · %{customdata[2]}"
-                    "<br>Mean line (OLS) %{customdata[3]} · %{customdata[4]}"
-                    "<br>Lower %{customdata[5]} · %{customdata[6]}<extra></extra>"
-                ),
+                # Plotly still emits hover events; the accessible tricolor panel
+                # presents all three bands once, instead of three repeated tooltips.
+                hoverinfo="none",
             ))
         palette = ["#b47a48", "#7086a0", "#9a6680", "#7e8e4c"]
         for i, comparison in enumerate(comparisons):
@@ -236,11 +250,14 @@ def _make_figure(primary, comparisons, model, readouts):
         height=520, margin={"l": 18, "r": 18, "t": 18, "b": 38},
         paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
         font={"color": "#40504e", "family": "sans-serif", "size": 13},
-        showlegend=bool(primary), hovermode="x unified",
+        showlegend=bool(primary), hovermode="closest",
+        hoverlabel={"font": {"size": 18}, "namelength": -1},
+        dragmode="pan",
         legend={"orientation": "h", "y": 1.08, "x": 0},
         xaxis={"title": "Date", "showgrid": True, "gridcolor": "rgba(91,111,106,.13)",
                "zeroline": False, "rangeslider": {"visible": False}},
         yaxis={"title": "Price (USD; comparisons rebased)", "type": "log",
+                 "automargin": True,
                  "tickprefix": "$", "tickformat": "$,.2~f", "showgrid": True,
                  "showexponent": "none", "minorloglabels": "none",
                 "gridcolor": "rgba(91,111,106,.13)", "zeroline": False,
@@ -299,15 +316,23 @@ def _render_winner_analysis(primary, reading):
     if analysis is None:
         st.write("Mean-reversion analysis needs adjusted history that is not currently available.")
         return
-    render_score_details(analysis, scores, _SCORE_STYLE)
+    render_score_details(analysis, scores, _SCORE_STYLE, primary)
 
 
 @st.fragment
 def render_mean_reversion_workspace():
     """Render the independent Mean Reversion stock-analysis workspace."""
-    verdict_slot = st.empty()
-    st.title("Mean Reversion")
-    st.caption("Price history, long-run channel, and date-specific target estimates.")
+    st.markdown(
+        """
+        <style>
+        .stApp:has(.mr-workspace-marker) [data-testid="stMainBlockContainer"] {
+            padding-top: 2.5rem;
+        }
+        </style>
+        <div class="mr-workspace-marker" aria-hidden="true"></div>
+        """,
+        unsafe_allow_html=True,
+    )
     with st.form("mr_replace_primary_top_form"):
         a, b = st.columns([5, 1])
         a.text_input("Enter stock ticker", key=_TOP_PRIMARY_INPUT,
@@ -326,25 +351,25 @@ def render_mean_reversion_workspace():
             _restore_default()
 
     primary = st.session_state.get(_PRIMARY)
-    reading = _winner_reading(primary) if primary else (None, None, [])
-    if primary and reading[0] is not None:
-        verdict = "WINNER" if reading[0]["winner"] else "NOT A WINNER"
-        color = "#527b5d" if reading[0]["winner"] else "#a25e4b"
-        verdict_slot.markdown(
-            f"<div style='font-size:44px;font-weight:800;line-height:1.15;"
-            f"color:{color};margin-bottom:16px'>{verdict} — {primary['symbol']}</div>",
+    if st.session_state.get(_ERROR):
+        st.markdown(
+            "<div class='mr-input-feedback' role='status' "
+            "style='font-size:24px;font-weight:800;color:#111'>"
+            f"{escape(st.session_state[_ERROR])}</div>",
             unsafe_allow_html=True,
         )
-    if primary and reading[0] is not None:
-        render_stock_readout(primary, _cached_company_name(primary["symbol"]),
-                             reading[0], reading[1])
-    elif primary:
-        st.header(f"{primary['symbol']} — {_cached_company_name(primary['symbol'])}", anchor=False)
-        st.write("Mean-reversion analysis unavailable.")
+    reading = _winner_reading(primary) if primary else (None, None, [])
+    if not primary:
+        if st.session_state.get(_ERROR):
+            st.error(st.session_state[_ERROR])
+        if st.session_state.get(_REMOVED):
+            st.info("No stock selected. Enter a ticker above or restore the SOXL example.")
+        else:
+            st.info("Stock analysis is unavailable until a ticker can be loaded. Enter a ticker above to retry.")
     model, rows, selected = None, [], None
     if primary:
         last = date.fromisoformat(primary["dates"][-1])
-        maximum = last + timedelta(days=365 * 10)
+        maximum = date.max
         suggested = last + timedelta(days=365)
         value = st.session_state.get(_DATE_INPUT, suggested)
         if value < last:
@@ -353,27 +378,33 @@ def render_mean_reversion_workspace():
             value = maximum
         st.session_state[_DATE_INPUT] = value
         with st.spinner("Fitting the price channel…"):
-            model = _cached_channel(primary, value.isoformat())
+            try:
+                model = _cached_channel(primary, value.isoformat())
+            except ValueError:
+                st.write("That projection exceeds the numerical price range. Showing the fitted history; choose an earlier end date.")
+                value = last
+                st.session_state[_DATE_INPUT] = value
+                model = _cached_channel(primary, value.isoformat())
         selected = value
         rows = channel_readout(model, selected) if model.get("has_mean") else []
 
     if primary:
+        render_stock_readout(
+            primary, _cached_company_name(primary["symbol"]), reading[0], reading[1],
+            channel=model,
+        )
         st.date_input(
             "Projection and readout date",
             min_value=date.fromisoformat(primary["dates"][-1]),
-            max_value=date.fromisoformat(primary["dates"][-1]) + timedelta(days=365 * 10),
+            max_value=date.max,
             key=_DATE_INPUT,
-            help="Choose a future target date. The channel extends through this date.",
+            help="Extend all three fixed, straight trend lines to your chosen date, including 100 years ahead.",
         )
 
     comparisons = st.session_state.get(_COMPARISONS, [])
-    if primary:
-        st.header(f"{primary['symbol']} · Mean Reversion", anchor=False)
-    st.plotly_chart(
+    render_channel_chart(
         _make_figure(primary, comparisons, model, rows),
-        use_container_width=True,
-        config={"displaylogo": False, "scrollZoom": True},
-        key="mean_reversion_workspace_chart",
+        primary, model, rows, selected,
     )
 
     controls = st.columns([1, 1, 1, 2])
@@ -418,7 +449,7 @@ def render_mean_reversion_workspace():
             f"{history['symbol']} · normalized to primary price at first common date · "
             f"true adjusted prices remain available on hover"
         )
-    if st.session_state.get(_ERROR):
+    if st.session_state.get(_ERROR) and primary:
         st.error(st.session_state[_ERROR])
 
     if rows:
@@ -428,6 +459,13 @@ def render_mean_reversion_workspace():
 
     if model:
         with st.expander("Mean-reversion method"):
+            st.write(
+                "The chart uses three fixed, straight log-price trend lines fitted "
+                "to the full available history, matching the SOXL chart. Its "
+                "displayed slope and above/below-mean distance refer to that "
+                "fixed chart mean. The recovery scores below use the separate "
+                "walk-forward calculation described here."
+            )
             st.write(
                 "Use full adjusted-close history. Starting after five calendar years, "
                 "fit each day's trend to the preceding five years, excluding that day's close. "
@@ -467,11 +505,10 @@ def render_mean_reversion_workspace():
             )
         with st.expander("Channel and probability method"):
             st.write(
-                "Historical center values are daily preceding-five-year OLS predictions. "
-                "The latest fit extends to the selected future date. Upper/lower "
-                "bands are ±2 residual standard deviations of each preceding fit, "
-                "not calibrated confidence bounds. Shading begins 10% below trend; "
-                "shading alone is not the deep-dip flag. "
+                "Chart slope is full-history OLS in log price. Upper, mean, and lower "
+                "lines use the maximum, median, and minimum residual intercept, "
+                "matching the SOXL automatic channel. All three remain straight "
+                "and extend to the selected future date; they are not rolling bands. "
                 "Touch probabilities use historical daily log-return drift and volatility "
                 "with a directional first-passage model, including downward targets. "
                 "They concern the fixed price shown for the selected date, not ending "

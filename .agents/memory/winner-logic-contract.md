@@ -17,6 +17,17 @@ must never rescue an unrecovered crash. Count each departure once until price
 returns to its daily band. Newer events stay separate from the common mature
 five-year cohort, which includes failures.
 
+The rolling-five-year rule is for scoring, not the displayed channel. The user
+subsequently rejected bent plotted bands and required fixed straight SOXL-style
+chart lines with long forward extension, without replacing the scoring formulas.
+
+**Why:** Chart geometry and statistical recovery evidence have different roles;
+using rolling scoring fits as the visible channel violated the user's explicit
+chart requirement.
+
+**How to apply:** Read the landing-chart priority topic before changing the
+plotted mean or its visible slope/position readout.
+
 Apply identical formulas to all securities and share one growth verdict across
 Steel Hands and Paper Hands. The deep-dip flag is independent of that verdict.
 Do not tune tickers, truncate history, or normalize scores to favorite benchmarks.

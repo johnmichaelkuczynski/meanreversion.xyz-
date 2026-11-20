@@ -12,7 +12,8 @@
     const text = document.createElement('p');
     text.textContent = 'The page may have lost its connection or failed to load. Reopen it to start a fresh session. Unsaved chart adjustments may be lost.';
     const button = document.createElement('button');
-    button.textContent = 'Reopen SOXL Analysis';
+    button.textContent = location.pathname.startsWith('/soxl')
+      ? 'Reconnect SOXL' : 'Reconnect Mean Reversion';
     button.style.cssText = 'padding:10px 16px;cursor:pointer;background:#1565c0;color:white;border:0;border-radius:6px;font:inherit';
     button.onclick = () => {
       const url = new URL(location.href);

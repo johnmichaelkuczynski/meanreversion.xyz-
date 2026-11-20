@@ -7,6 +7,7 @@ from pathlib import Path
 import subprocess
 import sys
 import time
+from urllib.parse import urlsplit
 
 import tornado.httpclient
 import tornado.web
@@ -16,6 +17,26 @@ from database_config import database_url
 BACKEND = "http://127.0.0.1:8501"
 state = None
 ready = False
+
+
+def websocket_origin_allowed(origin, host):
+    """Keep same-origin protection while accepting Replit's forwarded :5000."""
+    try:
+        source = urlsplit(origin)
+        target = urlsplit("//" + host)
+        if source.scheme not in ("http", "https") or source.hostname != target.hostname:
+            return False
+        source_port = source.port or (443 if source.scheme == "https" else 80)
+        target_port = target.port or (443 if source.scheme == "https" else 80)
+        if source_port == target_port:
+            return True
+        return (
+            source.hostname.endswith(".replit.dev")
+            and source_port == 5000
+            and target.port in (None, 80, 443)
+        )
+    except (ValueError, AttributeError):
+        return False
 
 
 def mean_reversion_startup_page():
@@ -148,8 +169,7 @@ class Gateway(tornado.web.RequestHandler):
 
 class Socket(tornado.websocket.WebSocketHandler):
     def check_origin(self, origin):
-        from urllib.parse import urlparse
-        return urlparse(origin).netloc == self.request.host
+        return websocket_origin_allowed(origin, self.request.host)
 
     def select_subprotocol(self, protocols):
         return "streamlit" if "streamlit" in protocols else None
@@ -159,6 +179,15 @@ class Socket(tornado.websocket.WebSocketHandler):
         for key in ("Upgrade", "Connection", "Sec-Websocket-Key", "Sec-Websocket-Version",
                     "Sec-Websocket-Protocol", "Sec-Websocket-Extensions"):
             headers.pop(key, None)
+        origin = self.request.headers.get("Origin")
+        if origin and websocket_origin_allowed(origin, self.request.host):
+            # The edge may strip :5000 from Host. Streamlit must see the same
+            # validated public authority as the browser, or its own origin
+            # check rejects an otherwise accepted gateway connection.
+            authority = urlsplit(origin).netloc
+            headers["Host"] = authority
+            headers["X-Forwarded-Host"] = authority
+            headers["X-Forwarded-Proto"] = urlsplit(origin).scheme
         request = tornado.httpclient.HTTPRequest(
             BACKEND.replace("http:", "ws:") + self.request.uri, headers=headers)
         self.pending = []
@@ -197,7 +226,9 @@ async def run(port):
     from full_diagnostics import DiagnosticsRun, DiagnosticsStatus
     from schwab_auth import Connect, Callback, Status
     from stock_chart_api import StockHistory
+    from mean_reversion_chart_assets import PlotlyRuntime
     application = tornado.web.Application([
+        (r"/api/mean-reversion/plotly\.js", PlotlyRuntime),
         (r"/api/chart/stock", StockHistory),
         (r"/auth/schwab/connect", Connect),
         (r"/auth/schwab/callback", Callback),

@@ -3,7 +3,7 @@
 These channels describe historical prices. They do not supply a replacement
 mean-reversion score. That calculation remains separate pending the new logic.
 """
-from datetime import date
+from datetime import date, timedelta
 import math
 
 import numpy as np
@@ -21,6 +21,13 @@ YEAR_DAYS = 365.25
 
 def _day(value):
     return pd.Timestamp(value).tz_localize(None).normalize()
+
+
+def _calendar_day(value):
+    """Native calendar arithmetic supports horizons beyond pandas' nanoseconds."""
+    if isinstance(value, str):
+        return date.fromisoformat(value[:10])
+    return value.date() if hasattr(value, "date") else value
 
 
 def fit_channel(history, end_date=None):
@@ -48,12 +55,17 @@ def fit_channel(history, end_date=None):
         "lower": float(np.min(intercepts)),
     }
     last = dates[-1]
-    end = (_day(end_date) if end_date is not None else
-           max(last, _day(date.today())) + pd.DateOffset(years=10))
-    end = max(last, end)
-    future = pd.date_range(last, end, freq="7D")
-    line_dates = dates.union(future).union(pd.DatetimeIndex([end]))
-    line_years = np.asarray((line_dates - origin).days, dtype=float) / YEAR_DAYS
+    end = (_calendar_day(end_date) if end_date is not None else
+           (max(last, _day(date.today())) + pd.DateOffset(years=10)).date())
+    last_day, origin_day = last.date(), origin.date()
+    end = max(last_day, end)
+    # Straight lines need no daily resampling in distant future space. Bound
+    # rendering cost, not the user's requested projection date.
+    duration = (end-last_day).days
+    step = max(7, math.ceil(duration/2000))
+    future = [last_day+timedelta(days=offset) for offset in range(0, duration, step)]
+    line_dates = sorted(set(dates.date).union(future, [end]))
+    line_years = np.asarray([(day-origin_day).days for day in line_dates], dtype=float) / YEAR_DAYS
     lines = {}
     for kind, _, _ in CHANNELS:
         with np.errstate(over="ignore", under="ignore"):
@@ -67,15 +79,16 @@ def fit_channel(history, end_date=None):
     latest_trend_log = offsets["median"] + slope * years[-1]
     return {
         "symbol": history["symbol"],
+        "has_mean": True,
         "dates": dates.strftime("%Y-%m-%d").tolist(),
         "prices": prices.tolist(),
-        "line_dates": line_dates.strftime("%Y-%m-%d").tolist(),
+        "line_dates": [day.isoformat() for day in line_dates],
         "lines": lines,
         "slope_pct": float(np.expm1(slope) * 100),
         "position_pct": float(np.expm1(log_prices[-1] - latest_trend_log) * 100),
         "latest_price": float(prices[-1]),
         "last_date": last.date().isoformat(),
-        "projection_end": end.date().isoformat(),
+        "projection_end": end.isoformat(),
         "origin": origin.date().isoformat(),
         "slope": slope,
         "intercepts": offsets,
@@ -90,7 +103,7 @@ def hit_probability(model, target_price, target_date):
     """Directional first passage to a fixed price by a date, as on SOXL page."""
     try:
         target = float(target_price)
-        years = (_day(target_date) - _day(model["last_date"])).days / YEAR_DAYS
+        years = (_calendar_day(target_date) - _calendar_day(model["last_date"])).days / YEAR_DAYS
     except (TypeError, ValueError, OverflowError):
         return None
     sigma, drift = model.get("volatility"), model.get("drift")
@@ -116,8 +129,8 @@ def hit_probability(model, target_price, target_date):
 
 def channel_readout(model, selected_date):
     """All three projected prices and hit probabilities at one shared date."""
-    when = _day(selected_date)
-    years = (when - _day(model["origin"])).days / YEAR_DAYS
+    when = _calendar_day(selected_date)
+    years = (when - _calendar_day(model["origin"])).days / YEAR_DAYS
     rows = []
     for kind, label, color in CHANNELS:
         log_price = model["intercepts"][kind] + model["slope"] * years

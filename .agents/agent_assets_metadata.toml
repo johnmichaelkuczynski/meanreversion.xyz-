@@ -796,3 +796,31 @@ mtime_ms = 1795141327603
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:b0d92c61-69e9-4427-b00c-62f99328260c/a54ff20e-be69-41f6-85d4-029df4e6fa7e/11d4a9ff-360a-490a-a7fc-1e9751644020"
 storage_version_token = "1795141395717472"
 content_type = "text/csv"
+
+[[outputs]]
+id = "NVFlA9M9GABZnSdF21oni"
+uri = "file://generated-artifacts/mean-reversion-final-preview.jpg"
+type = "image"
+title = "Verified Mean Reversion preview"
+description = "Current rendered page with top ticker input, large black stock facts, three straight trend lines, and the readable tricolor price/probability panel."
+logical_id = "14d2b299-58b3-469a-97e7-4e021cc9fb5e"
+content_hash = "sha256:814ede0866ba59273cfd856a2574599bd2e21dab220f55711568f567c9bd2f76"
+size = 158772
+mtime_ms = 1795192165881
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:b0d92c61-69e9-4427-b00c-62f99328260c/14d2b299-58b3-469a-97e7-4e021cc9fb5e/9eaa4429-2d88-4c03-a594-26683f2b7f0f"
+storage_version_token = "1795192186940882"
+content_type = "image/jpeg"
+
+[[outputs]]
+id = "2x86LMRqVO4qC89kRNSd1"
+uri = "file://generated-artifacts/mean-reversion-docked-readout.jpg"
+type = "image"
+title = "Readout below the unobstructed chart"
+description = "Updated preview with Float/Dock, Smaller/Larger, Expand/Restore, Collapse/Show and corner resize controls."
+logical_id = "b53a6117-3f63-4efb-8947-1e58012b1331"
+content_hash = "sha256:752dd2306e8ba0a2c591bc9a31f3d409eda3395a693c546629f334fc79393360"
+size = 163070
+mtime_ms = 1795192678645
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:b0d92c61-69e9-4427-b00c-62f99328260c/b53a6117-3f63-4efb-8947-1e58012b1331/b1960672-d5d0-424f-820d-b7da759c1943"
+storage_version_token = "1795192734130362"
+content_type = "image/jpeg"
