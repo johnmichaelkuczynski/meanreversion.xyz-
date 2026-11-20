@@ -18,6 +18,7 @@ def fixture_history(symbol):
     return {"symbol": symbol, "dates": dates.strftime("%Y-%m-%d").tolist(),
             "prices": values.tolist(), "through": "2026-11-18", "source": "test fixture"}
 workspace._cached_stock_history = fixture_history
+workspace._cached_company_name = lambda s: {"AAPL": "Apple Inc.", "MSFT": "Microsoft Corporation"}.get(s, s + " security")
 workspace._cached_reference_analyses = lambda: (
     {s: workspace.analyze_winner(fixture_history(s)) for s in workspace.REFERENCE_SYMBOLS}, [])
 workspace.render_mean_reversion_workspace()
@@ -49,6 +50,8 @@ def test_soxl_and_three_lines_load_without_input():
     app = AppTest.from_string(SCRIPT, default_timeout=15).run()
     assert not app.exception
     assert app.title[0].value == "Mean Reversion"
+    assert app.header[0].value == "SOXL — SOXL security"
+    assert any(h.value == "SOXL · Mean Reversion" for h in app.header)
     assert len(app.get("plotly_chart")) == 1
     assert len(app.metric) == 11
     figure = chart(app)
@@ -61,7 +64,8 @@ def test_soxl_and_three_lines_load_without_input():
     app.radio[0].set_value("Paper hands").run()
     assert next(m for m in app.metric if m.label == "Paper hands score · 0–100")
     source = Path("mean_reversion_workspace.py").read_text()
-    assert source.index("st.plotly_chart(") < source.index('with st.form(')
+    assert source.index('with st.form("mr_replace_primary_top_form")') < source.index("st.plotly_chart(")
+    assert source.index("st.plotly_chart(") < source.index('with st.form("mr_replace_primary_form")')
 
 
 def test_replacement_comparisons_and_removal_are_separate():
@@ -72,11 +76,13 @@ def test_replacement_comparisons_and_removal_are_separate():
     data = chart(app)["data"]
     assert len(data) == 4
     assert data[0]["name"] == "AAPL · actual"
+    assert app.header[0].value == "AAPL — Apple Inc."
     assert not any("SOXL" in trace["name"] for trace in data)
     for symbol in ["MSFT", "KO", "SPY"]:
-        app.text_input[1].input(symbol)
+        app.text_input("mr_workspace_compare_input").input(symbol)
         next(b for b in app.button if b.label == "Add comparison").click().run()
     assert len(chart(app)["data"]) == 7
+    assert app.header[0].value == "AAPL — Apple Inc."
     next(b for b in app.button if b.label == "Remove KO").click().run()
     assert len(chart(app)["data"]) == 6
     next(b for b in app.button if b.label == "Remove last added").click().run()
@@ -85,6 +91,7 @@ def test_replacement_comparisons_and_removal_are_separate():
     next(b for b in app.button if b.label == "Remove all comparisons").click().run()
     assert len(chart(app)["data"]) == 4
     next(b for b in app.button if b.label == "Remove chart").click().run()
+    assert not any(h.value.endswith(" · Mean Reversion") for h in app.header)
     assert not json.loads(app.get("plotly_chart")[0].proto.spec)["data"]
     app.run()
     assert not json.loads(app.get("plotly_chart")[0].proto.spec)["data"]
@@ -98,6 +105,22 @@ def test_bad_replacement_keeps_last_good_chart():
     assert not app.exception
     assert app.error
     assert chart(app)["data"][0]["name"] == "SOXL · actual"
+
+
+def test_both_ticker_forms_replace_the_same_chart():
+    app = AppTest.from_string(SCRIPT, default_timeout=15).run()
+    assert len([b for b in app.button if b.label == "Replace primary"]) == 2
+    for input_key, symbol, button_index in [
+        ("mr_workspace_top_primary_input", "TQQQ", 0),
+        ("mr_workspace_primary_input", "MSFT", 1),
+    ]:
+        app.text_input(input_key).input(symbol)
+        [b for b in app.button if b.label == "Replace primary"][button_index].click().run()
+        assert not app.exception
+        assert chart(app)["data"][0]["name"] == f"{symbol} · actual"
+        assert any(h.value == f"{symbol} · Mean Reversion" for h in app.header)
+        assert app.text_input(input_key).value == ""
+        assert len(chart(app)["data"]) == 4
 
 
 def test_failed_initial_load_retries_and_recovers_existing_blank_sessions():
@@ -144,7 +167,7 @@ def test_date_changes_all_targets_and_hover_uses_each_hovered_date():
     from datetime import date
     app = AppTest.from_string(SCRIPT, default_timeout=15).run()
     prior = [metric.value for metric in app.metric if metric.label == "Target stock price"]
-    app.date_input[0].set_value(date(2028, 11, 18)).run()
+    app.date_input("mr_workspace_projection_date").set_value(date(2028, 11, 18)).run()
     assert not app.exception
     assert prior != [metric.value for metric in app.metric if metric.label == "Target stock price"]
     figure = chart(app)
@@ -164,3 +187,23 @@ def test_missing_reference_withholds_scores_without_losing_chart():
     assert not app.exception
     assert next(m for m in app.metric if m.label == "Steel hands score · 0–100").value == "Unavailable"
     assert len(chart(app)["data"]) == 4
+
+
+def test_top_readout_has_identity_individual_facts_scores_and_selected_date():
+    from datetime import date
+    app = AppTest.from_string(SCRIPT, default_timeout=15).run()
+    app.text_input("mr_workspace_top_primary_input").input("APPL")
+    next(b for b in app.button if b.label == "Replace primary").click().run()
+    assert not app.exception
+    assert app.header[0].value == "AAPL — Apple Inc."
+    assert app.text_input[0].label == "Enter stock ticker"
+    values = [m.value for m in app.markdown]
+    assert any(v.startswith("**Mean reverting: Yes") for v in values)
+    assert "**Mean trends up: Yes**" in values
+    assert any(v.startswith("**Mean trend growth: +") for v in values)
+    assert any(v.startswith("**Mean reversion + growth score · Steel hands:") for v in values)
+    assert any(v.startswith("**Position on 2026-11-18:") for v in values)
+    app.date_input("mr_workspace_position_date").set_value(date(2025, 11, 15)).run()
+    assert not app.exception
+    assert any(m.value.startswith("**Position on 2025-11-14:") for m in app.markdown)
+    assert app.header[0].value == "AAPL — Apple Inc."

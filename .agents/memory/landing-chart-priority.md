@@ -4,12 +4,15 @@ description: Mean Reversion owns page 1; all SOXL content belongs on separate pa
 ---
 
 Mean Reversion owns page 1 and is the default landing page, including its score area
-and a large chart visible even before a ticker is entered. Its ticker entry
-belongs below that chart. All existing SOXL/SRH content belongs on a separate
+and a large chart visible even before a ticker is entered. Keep its original
+ticker entry below that chart and a duplicate at the top of the page.
+All existing SOXL/SRH content belongs on a separate
 page 2, not below Mean Reversion on the same page.
 
 **Why:** The user explicitly required separate pages for Mean Reversion and
 SOXL, superseding both the SOXL-first order and the combined-page layout.
+The user subsequently requested an exact duplicate of the ticker form at the
+top so visitors need not search for the original.
 
 **How to apply:** Do not show the SOXL account header, quote, diagnostics or
 signal on the Mean Reversion page. Within the SOXL page, preserve
@@ -23,6 +26,16 @@ what the function does; SOXL is the required illustrative default.
 
 **How to apply:** Do not treat a failed initial history request as a completed
 initialization. Preserve deliberate removal, but allow the SOXL example to be restored.
+
+Keep the primary ticker and company name prominent at the top beside an obvious
+ticker-entry form. Put each key fact on its own line: whether mean reverting,
+whether the mean rises, annual trend growth, scores, and dated above/below-mean distance.
+
+**Why:** The user explicitly rejected paragraphs and buried facts, asking for
+"ONE LINE; ONE DATUM" so visitors need not search.
+
+**How to apply:** Both ticker forms must replace the same primary stock and
+update the heading and facts together. Label the actual price-observation date.
 
 Chart controls must start expanded and readable, with the header fully below the incline bar. Do not auto-shrink the panel to the small portion of the iframe visible when it first enters the viewport.
 

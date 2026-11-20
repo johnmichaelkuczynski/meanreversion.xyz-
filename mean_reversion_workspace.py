@@ -8,13 +8,14 @@ import streamlit as st
 
 from mean_reversion_channels import CHANNELS, channel_readout, hit_probability
 from mean_reversion_examples import render_illustrated_rankings
+from mean_reversion_readout import POSITION_DATE, render_stock_readout
 from mean_reversion_winner import (
     REFERENCE_SYMBOLS,
     analyze_winner,
     fit_winner_channel,
     normalize_scores,
 )
-from stock_chart_api import load_stock_history, normalize_stock_symbol
+from stock_chart_api import load_stock_history, load_stock_name, normalize_stock_symbol
 
 _PRIMARY = "mr_workspace_primary"
 _COMPARISONS = "mr_workspace_comparisons"
@@ -22,6 +23,7 @@ _ERROR = "mr_workspace_error"
 _AUTO_INIT = "mr_workspace_auto_initialized"
 _REMOVED = "mr_workspace_chart_removed"
 _PRIMARY_INPUT = "mr_workspace_primary_input"
+_TOP_PRIMARY_INPUT = "mr_workspace_top_primary_input"
 _COMPARE_INPUT = "mr_workspace_compare_input"
 _DATE_INPUT = "mr_workspace_projection_date"
 _SCORE_STYLE = "mr_workspace_score_style"
@@ -32,6 +34,14 @@ _COLORS = {kind: color for kind, _, color in CHANNELS}
 def _cached_stock_history(symbol):
     """Cache full available adjusted daily history."""
     return load_stock_history(symbol, start_date="1900-01-01", tiingo_only=True)
+
+
+@st.cache_data(ttl=86400, show_spinner=False)
+def _cached_company_name(symbol):
+    try:
+        return load_stock_name(symbol)
+    except Exception:
+        return "Company name unavailable"
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
@@ -53,12 +63,13 @@ def _cached_reference_analyses():
 
 
 def _load_history(symbol):
-    return _cached_stock_history(normalize_stock_symbol(symbol))
+    symbol = normalize_stock_symbol(symbol)
+    return _cached_stock_history("AAPL" if symbol == "APPL" else symbol)
 
 
-def _replace_primary():
+def _replace_primary(input_key=_PRIMARY_INPUT):
     try:
-        history = _load_history(st.session_state.get(_PRIMARY_INPUT, ""))
+        history = _load_history(st.session_state.get(input_key, ""))
         st.session_state[_PRIMARY] = history
         st.session_state[_REMOVED] = False
         st.session_state[_COMPARISONS] = [
@@ -67,8 +78,9 @@ def _replace_primary():
         ]
         last = date.fromisoformat(history["dates"][-1])
         st.session_state[_DATE_INPUT] = last + timedelta(days=365)
+        st.session_state[POSITION_DATE] = last
         st.session_state[_ERROR] = None
-        st.session_state[_PRIMARY_INPUT] = ""
+        st.session_state[input_key] = ""
     except ValueError as exc:
         st.session_state[_ERROR] = str(exc)
     except Exception:
@@ -127,6 +139,7 @@ def _restore_default():
         st.session_state[_DATE_INPUT] = date.fromisoformat(
             history["dates"][-1]
         ) + timedelta(days=365)
+        st.session_state[POSITION_DATE] = date.fromisoformat(history["dates"][-1])
         st.session_state[_AUTO_INIT] = True
         st.session_state[_REMOVED] = False
         st.session_state[_ERROR] = None
@@ -272,25 +285,32 @@ def _render_readouts(rows, selected_date):
     )
 
 
-def _render_winner_analysis(primary):
-    """Plain-language mean-reversion analysis and fully-scaled reference scores."""
-    if not primary:
-        return
+def _winner_reading(primary):
+    """Share the exact same analysis and normalization across both readouts."""
     try:
-        tiingo_history = _cached_stock_history(primary["symbol"])
-        analysis = analyze_winner(tiingo_history)
+        analysis = analyze_winner(primary)
     except Exception:
-        st.write("Mean-reversion analysis needs adjusted history that is not currently available.")
-        return
+        return None, None, []
     references, unavailable = _cached_reference_analyses()
     complete_references = not unavailable and all(
         symbol in references for symbol in REFERENCE_SYMBOLS
     )
     try:
         scores = normalize_scores(analysis, references) if complete_references else None
-    except ValueError as exc:
+    except ValueError:
         scores = None
-        st.write(str(exc))
+    return analysis, scores, unavailable
+
+
+def _render_winner_analysis(primary, reading):
+    """Plain-language mean-reversion analysis and fully-scaled reference scores."""
+    if not primary:
+        return
+    analysis, scores, unavailable = reading
+    if analysis is None:
+        st.write("Mean-reversion analysis needs adjusted history that is not currently available.")
+        return
+    complete_references = not unavailable
 
     st.subheader("Mean-reversion read")
     st.caption(
@@ -390,6 +410,14 @@ def render_mean_reversion_workspace():
     """Render the independent Mean Reversion stock-analysis workspace."""
     st.title("Mean Reversion")
     st.caption("Price history, long-run channel, and date-specific target estimates.")
+    with st.form("mr_replace_primary_top_form"):
+        a, b = st.columns([5, 1])
+        a.text_input("Enter stock ticker", key=_TOP_PRIMARY_INPUT,
+                     placeholder="SOXL, AAPL, or another ticker")
+        b.write("")
+        st.form_submit_button("Replace primary", type="primary",
+                              use_container_width=True, on_click=_replace_primary,
+                              args=(_TOP_PRIMARY_INPUT,))
     for key, initial in ((_COMPARISONS, []), (_ERROR, None), (_AUTO_INIT, False)):
         if key not in st.session_state:
             st.session_state[key] = initial
@@ -400,6 +428,13 @@ def render_mean_reversion_workspace():
             _restore_default()
 
     primary = st.session_state.get(_PRIMARY)
+    reading = _winner_reading(primary) if primary else (None, None, [])
+    if primary and reading[0] is not None:
+        render_stock_readout(primary, _cached_company_name(primary["symbol"]),
+                             reading[0], reading[1])
+    elif primary:
+        st.header(f"{primary['symbol']} — {_cached_company_name(primary['symbol'])}", anchor=False)
+        st.write("Mean-reversion analysis unavailable.")
     model, rows, selected = None, [], None
     if primary:
         last = date.fromisoformat(primary["dates"][-1])
@@ -426,6 +461,8 @@ def render_mean_reversion_workspace():
         )
 
     comparisons = st.session_state.get(_COMPARISONS, [])
+    if primary:
+        st.header(f"{primary['symbol']} · Mean Reversion", anchor=False)
     st.plotly_chart(
         _make_figure(primary, comparisons, model, rows),
         use_container_width=True,
@@ -448,7 +485,7 @@ def render_mean_reversion_workspace():
         st.button("Show SOXL example", on_click=_restore_default,
                   key="mr_restore_default", type="primary")
 
-    _render_winner_analysis(primary)
+    _render_winner_analysis(primary, reading)
 
     with st.form("mr_replace_primary_form"):
         a, b = st.columns([5, 1])

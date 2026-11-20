@@ -20,9 +20,17 @@ def test_both_orders_preserve_the_supplied_rankings():
 
 
 def test_only_real_supplied_images_are_used():
-    assert {n for n,path in IMAGE_PATHS.items() if path is None} == {6,7,8}
-    assert len([p for p in IMAGE_PATHS.values() if p]) == 10
+    assert not {n for n,path in IMAGE_PATHS.items() if path is None}
+    assert len([p for p in IMAGE_PATHS.values() if p]) == 13
     assert all(Path(p).is_file() for p in IMAGE_PATHS.values() if p)
+    # Raw uploads are deliberately excluded by Docker; packaged app images must
+    # not depend on that folder in a deployed build.
+    assert all(Path(p).parent.name == "mean_reversion" and
+               Path(p).parent.parent.name == "assets"
+               for p in IMAGE_PATHS.values() if p)
+    exclusions = Path(".dockerignore").read_text().splitlines()
+    assert "assets" not in exclusions
+    assert "assets/mean_reversion" not in exclusions
 
 
 def test_each_ranking_renders_its_images_and_significance():
@@ -33,9 +41,9 @@ def test_each_ranking_renders_its_images_and_significance():
     ).run()
     assert not app.exception
     assert len(app.subheader) == 2
-    assert len(app.get("imgs")) == 20
+    assert len(app.get("imgs")) == 26
     assert len([m for m in app.markdown if m.value.startswith("**")]) == 26
     notices = [c for c in app.caption if "image was not supplied" in c.value]
-    assert len(notices) == 6
+    assert len(notices) == 0
     source = Path("mean_reversion_workspace.py").read_text()
     assert source.index("st.plotly_chart(") < source.index("    render_illustrated_rankings()")

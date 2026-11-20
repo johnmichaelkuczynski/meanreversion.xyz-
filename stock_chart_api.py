@@ -23,6 +23,26 @@ def normalize_stock_symbol(value):
     return symbol
 
 
+def load_stock_name(symbol):
+    """Read a security's real display name from the existing Tiingo feed."""
+    import os
+    import requests
+    code = normalize_stock_symbol(symbol).removesuffix(".US").replace(".", "-")
+    key = os.environ.get("TIINGO_API_KEY", "").strip()
+    if not key:
+        raise StockHistoryUnavailable("Security name lookup is unavailable.")
+    response = requests.get(
+        f"https://api.tiingo.com/tiingo/daily/{code}",
+        headers={"Authorization": "Token " + key}, timeout=5,
+    )
+    response.raise_for_status()
+    payload = response.json()
+    name = payload.get("name") if isinstance(payload, dict) else None
+    if not isinstance(name, str) or not name.strip():
+        raise StockHistoryUnavailable("Security name lookup is unavailable.")
+    return name.strip()
+
+
 def load_stock_history(symbol, *, start_date="2000-01-01", tiingo_only=False):
     import os
     from datetime import date

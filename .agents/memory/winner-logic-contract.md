@@ -39,3 +39,12 @@ after previously supplying them as background only.
 
 **How to apply:** Preserve their stated ranking orders independently of live scores.
 Do not retune scores to match the illustrations or fabricate missing original images.
+
+Ranking drawings are required runtime assets, not merely chat uploads.
+
+**Why:** The external Docker deployment excludes uploaded attachments, which caused
+all pictures to disappear despite working in the workspace. All thirteen originals
+have now been supplied by the user.
+
+**How to apply:** Keep the originals in the deployable asset bundle; verify both
+rankings render all thirteen rather than checking only text or workspace uploads.

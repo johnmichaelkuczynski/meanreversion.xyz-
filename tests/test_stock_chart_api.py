@@ -9,6 +9,25 @@ import stock_chart_api as api
 
 
 class StockHistoryTests(unittest.TestCase):
+    def test_company_name_uses_tiingo_metadata(self):
+        from unittest.mock import Mock
+        response = Mock()
+        response.json.return_value = {"name": "Apple Inc."}
+        with patch.dict("os.environ", {"TIINGO_API_KEY": "test-only"}, clear=True), \
+                patch("requests.get", return_value=response) as get:
+            self.assertEqual(api.load_stock_name("AAPL"), "Apple Inc.")
+        self.assertTrue(get.call_args.args[0].endswith("/daily/AAPL"))
+        self.assertEqual(get.call_args.kwargs["timeout"], 5)
+
+    def test_missing_company_name_is_explicit(self):
+        from unittest.mock import Mock
+        response = Mock()
+        response.json.return_value = {}
+        with patch.dict("os.environ", {"TIINGO_API_KEY": "test-only"}, clear=True), \
+                patch("requests.get", return_value=response):
+            with self.assertRaises(api.StockHistoryUnavailable):
+                api.load_stock_name("AAPL")
+
     def test_symbols(self):
         self.assertEqual(api.normalize_stock_symbol(" aapl "), "AAPL")
         self.assertEqual(api.normalize_stock_symbol("BRK.B"), "BRK.B")

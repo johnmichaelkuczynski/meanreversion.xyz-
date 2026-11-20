@@ -5,7 +5,7 @@ from pathlib import Path
 import streamlit as st
 
 
-_ASSET_DIR = Path(__file__).resolve().parent / "attached_assets"
+_ASSET_DIR = Path(__file__).resolve().parent / "assets" / "mean_reversion"
 
 # These are illustrative user-provided rank orders, not a live score ranking.
 RANKING_1_ORDER = [7, 8, 2, 1, 10, 3, 9, 5, 6, 11, 4, 13, 12]
@@ -78,7 +78,7 @@ RANKING_2_DESCRIPTIONS = {
 
 IMAGE_PATHS = {
     drawing: next(
-        (str(path) for path in _ASSET_DIR.glob(f"drawing{drawing}_*.png")),
+        (str(path) for path in _ASSET_DIR.glob(f"drawing{drawing}.png")),
         None,
     )
     for drawing in range(1, 14)
