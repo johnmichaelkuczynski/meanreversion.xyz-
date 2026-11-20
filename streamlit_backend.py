@@ -60,8 +60,14 @@ class SearchableServer(Server):
     def _create_app(self):
         if config.get_option("server.baseUrlPath"):
             raise RuntimeError("SOXL public routes require an empty server.baseUrlPath.")
+        application = super()._create_app()
+        # The first render writes Google's auth settings after this server is
+        # constructed. Use the same persistent signing key from the beginning,
+        # including that first login and subsequent server restarts.
+        if os.environ.get("SESSION_SECRET"):
+            application.settings["cookie_secret"] = os.environ["SESSION_SECRET"]
         return install_public_routes(
-            super()._create_app(),
+            application,
             production=os.environ.get("APP_ENV", "").strip().lower() == "production",
         )
 

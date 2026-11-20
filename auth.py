@@ -11,18 +11,21 @@ GOOGLE_METADATA = "https://accounts.google.com/.well-known/openid-configuration"
 
 
 def is_development_preview(environ=None):
+    """Only a server-marked workspace may receive the automatic local identity."""
     env = os.environ if environ is None else environ
-    return env.get("APP_ENV", "").strip().lower() in {"dev", "development"}
+    if env.get("REPLIT_DEPLOYMENT", "").strip().lower() in {"1", "true", "yes"}:
+        return False
+    if env.get("APP_ENV", "").strip().lower() in {"production", "prod"}:
+        return False
+    return bool(env.get("REPLIT_DEV_DOMAIN", "").strip())
 
 
 def get_current_user():
     if is_development_preview():
-        if st.session_state.get("preview_signed_out", False):
-            return {"is_logged_in": False, "auth_provider": "development"}
         return {
             "is_logged_in": True,
             "sub": "development-preview",
-            "name": "Developer",
+            "name": "Development session",
             "auth_provider": "development",
         }
     return dict(st.user)
@@ -46,9 +49,9 @@ def is_owner(user=None):
     )
 
 
-def redirect_uri(environ=None):
+def redirect_uri(environ=None, *, origin=None):
     env = os.environ if environ is None else environ
-    origin = env.get("PUBLIC_APP_URL", "")
+    origin = origin or env.get("PUBLIC_APP_URL", "")
     parsed = urlsplit(origin)
     if (parsed.scheme != "https" or not parsed.hostname or parsed.username
             or parsed.password or parsed.query or parsed.fragment
@@ -57,13 +60,13 @@ def redirect_uri(environ=None):
     return origin.rstrip("/") + "/oauth2callback"
 
 
-def auth_settings(environ=None):
+def auth_settings(environ=None, *, origin=None):
     env = os.environ if environ is None else environ
     required = ("GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "SESSION_SECRET")
     if any(not env.get(key) for key in required):
         raise ValueError("Google sign-in configuration is incomplete.")
     return {
-        "redirect_uri": redirect_uri(env),
+        "redirect_uri": redirect_uri(env, origin=origin),
         "cookie_secret": env["SESSION_SECRET"],
         "google": {
             "client_id": env["GOOGLE_CLIENT_ID"],
@@ -74,10 +77,21 @@ def auth_settings(environ=None):
     }
 
 
-@st.cache_resource(show_spinner=False)
 def configure_google_auth():
+    """Use the configured origin, or the current HTTPS site's actual origin."""
+    origin = os.environ.get("PUBLIC_APP_URL", "").strip()
+    if not origin:
+        parsed = urlsplit(st.context.url)
+        origin = f"{parsed.scheme}://{parsed.netloc}"
+    # Validate before using the origin as a cache key or writing configuration.
+    redirect_uri(origin=origin)
+    return _configure_google_auth_for_origin(origin)
+
+
+@st.cache_resource(show_spinner=False)
+def _configure_google_auth_for_origin(origin):
     """Create Streamlit's ignored config at runtime, never expose credentials."""
-    settings = auth_settings()
+    settings = auth_settings(origin=origin)
     path = Path(".streamlit/secrets.toml")
     path.parent.mkdir(exist_ok=True)
     existing = toml.loads(path.read_text()) if path.exists() else {}
@@ -98,22 +112,15 @@ def configure_google_auth():
 
 def render_google_login():
     if is_development_preview():
-        if st.session_state.get("preview_signed_out", False):
-            if st.button("Sign in", key="preview_login", width="stretch"):
-                st.session_state["preview_signed_out"] = False
-                st.rerun()
-        else:
-            if st.button("Sign out", key="preview_logout", width="stretch",
-                         help="Sign out of this development session. New preview sessions start signed in."):
-                st.session_state.clear()
-                st.session_state["preview_signed_out"] = True
-                st.rerun()
+        # This identity is local development access, not a fabricated Google
+        # session. It survives reruns, stale logout flags, and fresh browser tabs.
+        st.caption("Development: automatically signed in")
         return
     try:
         configure_google_auth()
     except Exception:
         st.button("Sign in with Google", disabled=True, width="stretch")
-        st.info("Please try signing in again shortly. You can keep using the app.")
+        st.caption("Google sign-in is not configured for this site. App access remains available.")
         return
     if st.user.is_logged_in:
         st.caption(f"Signed in as {st.user.get('name') or st.user.get('email') or 'Google user'}")

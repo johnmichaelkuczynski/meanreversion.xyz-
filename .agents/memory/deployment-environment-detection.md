@@ -7,7 +7,9 @@ Use `REPLIT_DEPLOYMENT=1` as the authoritative signal that code is running in a 
 
 **Why:** A published VM can report `REPLIT_CONTAINER=repl`, which caused a development authentication bypass to activate on the public site.
 
-**How to apply:** Any security boundary or production-only behavior must check `REPLIT_DEPLOYMENT`. A workspace-only bypass may additionally require `REPLIT_DEV_DOMAIN` when the deployment flag is absent.
+**How to apply:** Any security boundary or production-only behavior must check
+`REPLIT_DEPLOYMENT`. Workspace automatic sign-in also requires the server-managed
+`REPLIT_DEV_DOMAIN`; an explicit production environment always disables it.
 
 Google sign-in must return to the same origin where login starts. Preview and
 published origins need separate authorized OAuth callback entries.
@@ -21,15 +23,18 @@ origin. Do not claim a real Google session to hide this error.
 Report missing Google Cloud allowlist entries as owner configuration blockers;
 never store or expose credentials while diagnosing them.
 
-Automatically sign in with a clearly identified development-only identity in
-new workspace preview sessions; never require Google login there. Allow an
-explicit Sign out and local Sign in within a preview session.
+Always sign in with a clearly identified development-only identity in workspace
+preview sessions; never require Google login there or offer a development
+Sign out action that can lock the user out.
 
 **Why:** The user explicitly requires uninterrupted access while developing
 and authorized preview-only automatic sign-in. This is not a Google identity.
-The user subsequently required a usable logout control in preview as well.
+The user's latest instruction requires being “ALWAYS LOGGED IN” in development,
+superseding the earlier request for a usable development logout control.
 
 **How to apply:** Keep the bypass server-controlled and disabled on published
 deployments even if workspace markers remain. Preserve real Google login on
 the published site; do not infer a production login requirement from this
-preview-only request.
+preview-only request. Reloads, fresh tabs, and stale development logout state
+must not require reauthentication. This local identity must never be presented
+as verified Google identity or silently receive production owner privileges.

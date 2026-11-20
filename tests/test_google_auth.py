@@ -11,11 +11,22 @@ class GoogleAuthTests(unittest.TestCase):
         self.addCleanup(env.stop)
 
     def test_auto_login_only_in_development_mode(self):
-        self.assertTrue(is_development_preview({"APP_ENV": "development"}))
+        self.assertTrue(is_development_preview({"REPLIT_DEV_DOMAIN": "workspace.replit.dev"}))
+        self.assertTrue(is_development_preview({
+            "APP_ENV": "development", "REPLIT_DEV_DOMAIN": "workspace.replit.dev"}))
+        self.assertFalse(is_development_preview({"APP_ENV": "development"}))
         self.assertFalse(is_development_preview({}))
         self.assertFalse(is_development_preview({"APP_ENV": "production"}))
+        for marker in ("1", "true", "yes"):
+            self.assertFalse(is_development_preview({
+                "REPLIT_DEPLOYMENT": marker, "APP_ENV": "development",
+                "REPLIT_DEV_DOMAIN": "workspace.replit.dev", "REPLIT_CONTAINER": "repl",
+            }))
+        self.assertFalse(is_development_preview({
+            "APP_ENV": "production", "REPLIT_DEV_DOMAIN": "workspace.replit.dev",
+        }))
 
-    @patch.dict("os.environ", {"APP_ENV": "development"})
+    @patch.dict("os.environ", {"REPLIT_DEV_DOMAIN": "workspace.replit.dev"})
     @patch("auth.configure_google_auth")
     @patch("auth.st")
     def test_preview_stays_signed_in_without_google(self, st, configure):
@@ -28,21 +39,32 @@ class GoogleAuthTests(unittest.TestCase):
         configure.assert_not_called()
         st.login.assert_not_called()
         st.logout.assert_not_called()
-        self.assertEqual(st.button.call_args.args[0], "Sign out")
+        st.button.assert_not_called()
+        st.caption.assert_called_with("Development: automatically signed in")
 
-    @patch.dict("os.environ", {"APP_ENV": "development"})
+    @patch.dict("os.environ", {"REPLIT_DEV_DOMAIN": "workspace.replit.dev"})
     @patch("auth.st")
-    def test_preview_explicit_logout_and_signin(self, st):
-        st.session_state = {}
+    def test_preview_cannot_be_stranded_signed_out_by_old_session_state(self, st):
+        st.session_state = {"preview_signed_out": True}
         st.button.return_value = True
         render_google_login()
-        self.assertFalse(get_current_user()["is_logged_in"])
-        self.assertTrue(st.session_state["preview_signed_out"])
+        self.assertTrue(get_current_user()["is_logged_in"])
+        st.session_state.clear()
         render_google_login()
         self.assertTrue(get_current_user()["is_logged_in"])
-        self.assertFalse(st.session_state["preview_signed_out"])
+        st.button.assert_not_called()
         st.login.assert_not_called()
         st.logout.assert_not_called()
+
+    @patch.dict("os.environ", {
+        "REPLIT_DEPLOYMENT": "1", "APP_ENV": "development",
+        "REPLIT_DEV_DOMAIN": "workspace.replit.dev",
+    })
+    @patch("auth.st")
+    def test_published_app_uses_only_verified_streamlit_identity_even_with_workspace_markers(self, st):
+        st.user = {"is_logged_in": False}
+        st.session_state = {"preview_signed_out": False}
+        self.assertEqual(get_current_user(), {"is_logged_in": False})
 
     @patch.dict("os.environ", {"APP_ENV": "production", "PUBLIC_APP_URL": "https://app.example.com"})
     @patch("auth.configure_google_auth")
@@ -65,6 +87,27 @@ class GoogleAuthTests(unittest.TestCase):
             "APP_ENV": "development",
             "PUBLIC_APP_URL": "https://app.example.com",
         }), "https://app.example.com/oauth2callback")
+
+    def test_request_origin_can_supply_callback_without_a_hardcoded_hostname(self):
+        self.assertEqual(redirect_uri({}, origin="https://stocks.example.com"),
+                         "https://stocks.example.com/oauth2callback")
+
+    @patch("auth._configure_google_auth_for_origin", return_value="configured")
+    @patch("auth.st")
+    def test_configuration_uses_current_site_origin_without_page_or_query(self, st, configure):
+        from auth import configure_google_auth
+        st.context.url = "https://stocks.example.com/soxl?view=chart"
+        self.assertEqual(configure_google_auth(), "configured")
+        configure.assert_called_once_with("https://stocks.example.com")
+
+    @patch.dict("os.environ", {"PUBLIC_APP_URL": "https://canonical.example.com"})
+    @patch("auth._configure_google_auth_for_origin", return_value="configured")
+    @patch("auth.st")
+    def test_explicit_public_origin_takes_priority(self, st, configure):
+        from auth import configure_google_auth
+        st.context.url = "https://other.example.com"
+        configure_google_auth()
+        configure.assert_called_once_with("https://canonical.example.com")
 
     def test_missing_configuration_fails_explicitly(self):
         with self.assertRaises(ValueError):

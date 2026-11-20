@@ -21,4 +21,4 @@ def test_uploaded_logo_and_caption_share_the_correct_website_link():
 
 def test_branding_is_above_page_content_on_both_pages():
     source = Path("main.py").read_text()
-    assert source.index("\nrender_zhi_branding()") < source.index("\npage.run()")
+    assert source.index("    render_zhi_branding()") < source.index("\npage.run()")
