@@ -7,10 +7,7 @@ from pathlib import Path
 
 import streamlit as st
 
-from auth import (
-    configure_google_auth, get_current_user, is_development_preview,
-    render_google_login, is_owner,
-)
+from auth import get_current_user, is_development_preview, is_owner
 from billing import (
     create_checkout, get_paid_access, get_plan, public_origin,
     user_identity, verify_checkout,
@@ -50,15 +47,7 @@ def paid_access_for_current_user(force=False):
 
 
 def _purchase_sign_in():
-    st.write("Sign in with Google so your purchase stays connected to your account.")
-    if st.button("Sign in to buy", key="checkout_google_login", type="primary",
-                 width="stretch"):
-        try:
-            configure_google_auth()
-            st.login("google")
-        except Exception as exc:
-            _billing_failure("sign-in", exc)
-            st.info("Sign-in could not open. Please try again. No payment was taken.")
+    st.info("Account sign-in is unavailable. All app features remain available without an account.")
 
 @st.dialog("Buy full access")
 def show_purchase_options():
@@ -71,7 +60,7 @@ def show_purchase_options():
         st.write(f"{plan['name']} · {price} one-time payment")
         st.caption("No recurring subscription. Stripe handles payment and calculates any applicable tax at checkout.")
         if is_development_preview():
-            st.info("The preview does not take payments. Use the published site and sign in with Google to purchase.")
+            st.info("The preview does not take payments. All app features remain available without an account.")
             st.link_button("Open published site to buy", public_origin() + "/?checkout=buy",
                            type="primary", width="stretch")
             return
@@ -88,7 +77,7 @@ def show_purchase_options():
                     once_key=checkout["session_id"])
         st.link_button(f"Pay {price} with Stripe", checkout["url"],
                        type="primary", width="stretch")
-        st.caption("After payment, return here with the same Google account. Your purchase will also be recognized on your next visit.")
+        st.caption("After payment, return here with the same account. Your purchase will also be recognized on your next visit.")
     except Exception as exc:
         _billing_failure("checkout", exc)
         track_event("checkout_error", {"stage": "checkout"})

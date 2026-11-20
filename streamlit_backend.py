@@ -1,7 +1,7 @@
-"""Start the existing Streamlit app with three public HTTP document handlers.
+"""Start the existing Streamlit app with public documents and no account login.
 
 No reverse proxy, alternate app, package-file edits, or user-agent detection.
-Streamlit continues to own WebSockets, OAuth, cookies, components and downloads.
+Streamlit continues to own WebSockets, cookies, components and downloads.
 The small Server integration uses Streamlit's Tornado backend; compatibility is
 checked at startup and by tests because _create_app is an internal API.
 """
@@ -38,8 +38,21 @@ class PublicDocumentHandler(RequestHandler):
         self.get()
 
 
+class RemovedLoginHandler(RequestHandler):
+    """Old login links and callbacks return to the public app, never Google."""
+
+    def get(self):
+        self.clear_cookie("_streamlit_user")
+        self.clear_cookie("_streamlit_user_tokens")
+        self.set_header("Cache-Control", "no-store")
+        self.redirect("/", permanent=False)
+
+    def head(self):
+        self.get()
+
+
 def install_public_routes(application, *, production: bool):
-    """Prepend only exact document paths; leave all other routing untouched."""
+    """Preserve app routes while disabling the removed account login endpoints."""
     template = Path(file_util.get_static_dir(), "index.html").read_text()
     recovery = Path(__file__).with_name("preview_recovery.js").read_text()
     template = template.replace("</head>", "<script>" + recovery + "</script></head>")
@@ -52,6 +65,10 @@ def install_public_routes(application, *, production: bool):
         routes.append((path, PublicDocumentHandler, {
             "body": body, "content_type": content_type, "production": production,
         }))
+    routes.extend([
+        (r"/auth/(?:login|logout)/?", RemovedLoginHandler),
+        (r"/oauth2callback/?", RemovedLoginHandler),
+    ])
     application.add_handlers(r".*$", routes)
     return application
 
@@ -60,14 +77,8 @@ class SearchableServer(Server):
     def _create_app(self):
         if config.get_option("server.baseUrlPath"):
             raise RuntimeError("SOXL public routes require an empty server.baseUrlPath.")
-        application = super()._create_app()
-        # The first render writes Google's auth settings after this server is
-        # constructed. Use the same persistent signing key from the beginning,
-        # including that first login and subsequent server restarts.
-        if os.environ.get("SESSION_SECRET"):
-            application.settings["cookie_secret"] = os.environ["SESSION_SECRET"]
         return install_public_routes(
-            application,
+            super()._create_app(),
             production=os.environ.get("APP_ENV", "").strip().lower() == "production",
         )
 

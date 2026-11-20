@@ -1,12 +1,12 @@
 """Exercise the real Streamlit WebSocket auth gate, without Google credentials."""
 import json
 from http.cookies import SimpleCookie
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 from tornado.testing import AsyncHTTPTestCase
 from tornado.web import Application
 from streamlit.web.server.browser_websocket_handler import BrowserWebSocketHandler
-from streamlit_backend import PublicDocumentHandler, SearchableServer
+from streamlit_backend import PublicDocumentHandler
 
 
 class CookieBootstrapTests(AsyncHTTPTestCase):
@@ -47,15 +47,3 @@ class CookieBootstrapTests(AsyncHTTPTestCase):
         second = self.fetch("/", headers={"Cookie": f"_streamlit_xsrf={token}"})
         self.assertEqual(second.code, 200)
         self.assertNotIn("Set-Cookie", second.headers)
-
-
-def test_native_server_uses_session_signing_secret_before_first_login():
-    from streamlit.web.server.server import Server
-    server = object.__new__(SearchableServer)
-    application = Application([])
-    with patch("streamlit_backend.config.get_option", return_value=""), \
-         patch.object(Server, "_create_app", return_value=application), \
-         patch("streamlit_backend.install_public_routes", side_effect=lambda app, **kwargs: app), \
-         patch.dict("os.environ", {"SESSION_SECRET": "test-only-persistent-cookie-key"}):
-        result = server._create_app()
-    assert result.settings["cookie_secret"] == "test-only-persistent-cookie-key"

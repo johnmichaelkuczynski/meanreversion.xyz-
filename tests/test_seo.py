@@ -239,9 +239,6 @@ class PublicRoutesHTTPTests(AsyncHTTPTestCase):
 
     def test_only_exact_seo_paths_override_native_fallback(self):
         native_paths = {
-            "/oauth2callback": b"native-oauth",
-            "/auth/login": b"native-auth-login",
-            "/auth/logout": b"native-auth-logout",
             "/_stcore/stream": b"native-websocket",
             "/component/example/main.js": b"native-component",
             "/_stcore/bidi-components/example": b"native-bidi-component",
@@ -253,6 +250,17 @@ class PublicRoutesHTTPTests(AsyncHTTPTestCase):
                 response = self.fetch(path)
                 self.assertEqual(response.code, 200)
                 self.assertEqual(response.body, expected_body)
+
+    def test_removed_login_and_callback_return_to_public_app(self):
+        for path in ("/auth/login", "/auth/logout", "/oauth2callback",
+                     "/auth/login?provider=google", "/oauth2callback?code=unused",
+                     "/auth/login/", "/oauth2callback/"):
+            with self.subTest(path=path):
+                response = self.fetch(path, follow_redirects=False)
+                self.assertEqual(response.code, 302)
+                self.assertEqual(response.headers["Location"], "/")
+                self.assertEqual(response.headers["Cache-Control"], "no-store")
+                self.assertIn("_streamlit_user=", "\n".join(response.headers.get_list("Set-Cookie")))
 
 
 class DevelopmentPublicRoutesHTTPTests(AsyncHTTPTestCase):
@@ -273,7 +281,7 @@ class DevelopmentPublicRoutesHTTPTests(AsyncHTTPTestCase):
 
 
 class SearchableServerContractTests(unittest.TestCase):
-    def test_create_app_puts_three_public_routes_before_stream_oauth_and_components(self):
+    def test_create_app_puts_documents_and_removed_login_routes_before_native_routes(self):
         # Server construction and _create_app only create in-memory handlers; no
         # app secrets, browser session, or external service is needed here.
         with patch.dict(os.environ, {"APP_ENV": "production"}):
@@ -284,8 +292,9 @@ class SearchableServerContractTests(unittest.TestCase):
         top_level_rules = application.default_router.rules
         self.assertGreaterEqual(len(top_level_rules), 2)
         public_rules = top_level_rules[0].target.rules
-        self.assertEqual(len(public_rules), 3)
-        self.assertTrue(all(rule.target is PublicDocumentHandler for rule in public_rules))
+        self.assertEqual(len(public_rules), 5)
+        self.assertTrue(all(rule.target is PublicDocumentHandler for rule in public_rules[:3]))
+        self.assertTrue(all(rule.target.__name__ == "RemovedLoginHandler" for rule in public_rules[3:]))
 
         public_patterns = [
             rule.matcher.regex.pattern
@@ -294,7 +303,7 @@ class SearchableServerContractTests(unittest.TestCase):
         self.assertTrue(public_patterns[0].endswith("/$"))
         self.assertTrue(public_patterns[1].endswith(r"/robots\.txt$"))
         self.assertTrue(public_patterns[2].endswith(r"/sitemap\.xml$"))
-        self.assertTrue(all(rule.target_kwargs["production"] for rule in public_rules))
+        self.assertTrue(all(rule.target_kwargs["production"] for rule in public_rules[:3]))
 
         native_rules = top_level_rules[1].target.rules
 

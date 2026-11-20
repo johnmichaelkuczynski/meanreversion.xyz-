@@ -9,8 +9,8 @@ feature is unavailable until its variables are supplied.
 | Variable | Required | Purpose |
 | --- | --- | --- |
 | `PORT` | No | Public HTTP port; defaults to `5000`. The gateway listens on `0.0.0.0`. |
-| `APP_ENV` | No | Set to `production` for indexable SEO responses; set to `development` for the local development identity. Docker sets `production`. |
-| `PUBLIC_APP_URL` | For Google sign-in / billing return URLs | Public HTTPS origin, for example `https://soxlpro.xyz`; no path, query, or fragment. |
+| `APP_ENV` | No | Set to `production` for indexable SEO responses. Automatic development access requires the server-managed workspace marker and is disabled in production. Docker sets `production`. |
+| `PUBLIC_APP_URL` | For legacy billing return URLs | Public HTTPS origin, for example `https://soxlpro.xyz`; no path, query, or fragment. |
 | `SOXL_DISABLE_WORKER` | No | Set to `1` to disable the market-refresh workers. |
 
 ## Database and visitor counter
@@ -19,7 +19,7 @@ feature is unavailable until its variables are supplied.
 | --- | --- | --- |
 | `NEON_DATABASE_URL` | Recommended | This app's PostgreSQL connection string. It takes priority for all app data, including market state, visitor counts, diagnostics, and Schwab OAuth tokens. Set it to this app's dedicated Neon database to keep data isolated from other apps. |
 | `DATABASE_URL` | Optional fallback | PostgreSQL connection URL used only when `NEON_DATABASE_URL` is not set. All web replicas and workers for this app must resolve to the same database. |
-| `SESSION_SECRET` | Recommended | Signs Google-auth cookies and anonymous visitor identifiers. Use a long random value. |
+| `SESSION_SECRET` | Recommended | Signs anonymous visitor identifiers. Use a long random value. |
 
 ## Market data
 
@@ -90,12 +90,12 @@ connection.
 | `R1_ANTHROPIC_MODEL` | No | Anthropic model selected by the system diagnostic; defaults to `claude-sonnet-4-5`. |
 | `GPTZERO_API_KEY` | Optional | GPTZero text-quality diagnostic. |
 
-## Google sign-in and Stripe
+## Legacy Stripe configuration
+
+Google account login has been removed. Stored Google credentials are not used.
 
 | Variable | Required | Purpose |
 | --- | --- | --- |
-| `GOOGLE_CLIENT_ID` | Optional | Google OAuth client ID. |
-| `GOOGLE_CLIENT_SECRET` | Optional | Google OAuth client secret. |
 | `STRIPE_SECRET_KEY` | Optional | Stripe API access for checkout and event processing. |
 | `STRIPE_WEBHOOK_SECRET` | Optional | Verifies signed requests to `POST /api/stripe/webhook`. |
 | `STRIPE_PRICE_ID` | Optional | Stripe price used by the legacy checkout flow. |

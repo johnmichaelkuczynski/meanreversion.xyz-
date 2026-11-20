@@ -11,17 +11,14 @@ Use `REPLIT_DEPLOYMENT=1` as the authoritative signal that code is running in a 
 `REPLIT_DEPLOYMENT`. Workspace automatic sign-in also requires the server-managed
 `REPLIT_DEV_DOMAIN`; an explicit production environment always disables it.
 
-Google sign-in must return to the same origin where login starts. Preview and
-published origins need separate authorized OAuth callback entries.
+Do not repair or reinstall Google login unless the user explicitly requests it
+again.
 
-**Why:** A real browser sign-in reached Google's `redirect_uri_mismatch` because
-the preview callback was not authorized. Substituting the production callback
-would not fix preview login: OAuth state and cookies belong to the initiating
-origin. Do not claim a real Google session to hide this error.
+**Why:** The user explicitly said to remove Google login, not fix it.
 
-**How to apply:** Verify provider authorization in addition to the local button.
-Report missing Google Cloud allowlist entries as owner configuration blockers;
-never store or expose credentials while diagnosing them.
+**How to apply:** Keep the app public and preserve development access. This
+instruction does not request removal of Schwab's separate market-data
+authorization.
 
 Always sign in with a clearly identified development-only identity in workspace
 preview sessions; never require Google login there or offer a development
@@ -33,8 +30,7 @@ The user's latest instruction requires being “ALWAYS LOGGED IN” in developme
 superseding the earlier request for a usable development logout control.
 
 **How to apply:** Keep the bypass server-controlled and disabled on published
-deployments even if workspace markers remain. Preserve real Google login on
-the published site; do not infer a production login requirement from this
-preview-only request. Reloads, fresh tabs, and stale development logout state
+deployments even if workspace markers remain. Do not infer a production login
+requirement from this preview-only request. Reloads, fresh tabs, and stale development logout state
 must not require reauthentication. This local identity must never be presented
 as verified Google identity or silently receive production owner privileges.

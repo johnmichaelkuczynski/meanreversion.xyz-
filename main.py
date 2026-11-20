@@ -4,7 +4,7 @@ import streamlit as st
 from clean_presentation import apply_clean_presentation
 from mean_reversion_workspace import render_mean_reversion_workspace
 from zhi_branding import render_zhi_branding
-from auth import render_google_login
+from auth import render_development_status
 
 
 st.set_page_config(page_title="Mean Reversion", layout="wide")
@@ -21,5 +21,5 @@ branding, account = st.columns([4, 2], vertical_alignment="center")
 with branding:
     render_zhi_branding()
 with account:
-    render_google_login()
+    render_development_status()
 page.run()
