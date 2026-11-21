@@ -282,7 +282,13 @@ class SearchableServerContractTests(unittest.TestCase):
 
         top_level_rules = application.default_router.rules
         self.assertGreaterEqual(len(top_level_rules), 2)
-        public_rules = top_level_rules[0].target.rules
+        installed_rules = top_level_rules[0].target.rules
+        self.assertEqual(len(installed_rules), 5)
+        self.assertEqual(
+            {rule.target.__name__ for rule in installed_rules[:2]},
+            {"PurchaseStart", "PurchaseLeave"},
+        )
+        public_rules = installed_rules[2:]
         self.assertEqual(len(public_rules), 3)
         self.assertTrue(all(rule.target is PublicDocumentHandler for rule in public_rules))
 

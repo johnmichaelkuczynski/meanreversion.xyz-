@@ -37,3 +37,23 @@ action after it obscured a successfully rendered Mean Reversion page.
 **How to apply:** Leave connection recovery to Streamlit without a custom
 blocking prompt, forced reload, or navigation that could discard chart state.
 Remove legacy recovery cards in already-open pages as well as new sessions.
+
+Browser console snapshots can include disconnected, abandoned testing tabs.
+Attribute failures to a full request authority and active page before concluding
+the user's app is down.
+
+**Why:** Stopped local fixtures generated continuous connection errors while
+the exact external preview accepted ticker input and updated charts normally.
+
+**How to apply:** Separate fixture-origin errors from the real preview. A fresh
+successful session still does not prove the user's existing tab recovered.
+
+Use HTTP request/status evidence for intermediate redirect hops, not just
+committed browser-frame URLs or the final cookie jar.
+
+**Why:** Successful purchase-start and checkout-departure HTTP 302 responses did
+not appear as committed frames; departure intentionally cleared the intent
+cookie before the final navigation.
+
+**How to apply:** Verify the redirect chain at the HTTP layer before diagnosing
+missing intent or skipped authentication from final browser state alone.

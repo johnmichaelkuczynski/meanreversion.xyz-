@@ -1,4 +1,4 @@
-"""Unrestricted application features, separate from optional billing status."""
+"""Legacy named-feature access; page-one ticker policy lives in ticker_access."""
 from __future__ import annotations
 
 import re

@@ -18,6 +18,7 @@ from mean_reversion_winner import (
     normalize_scores,
 )
 from stock_chart_api import load_stock_history, load_stock_name, normalize_stock_symbol
+from ticker_access import can_analyze_ticker, render_ticker_unlock
 
 _PRIMARY = "mr_workspace_primary"
 _COMPARISONS = "mr_workspace_comparisons"
@@ -30,6 +31,14 @@ _COMPARE_INPUT = "mr_workspace_compare_input"
 _DATE_INPUT = "mr_workspace_projection_date"
 _SCORE_STYLE = "mr_workspace_score_style"
 _COLORS = {kind: color for kind, _, color in CHANNELS}
+_LOCKED = "mr_workspace_locked_ticker"
+_LOCKED_MODE = "mr_workspace_locked_mode"
+
+
+def _lock_ticker(symbol, mode):
+    st.session_state[_LOCKED] = symbol
+    st.session_state[_LOCKED_MODE] = mode
+    st.session_state[_ERROR] = None
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
@@ -87,10 +96,18 @@ def _replace_primary(input_key=_PRIMARY_INPUT):
     try:
         requested = normalize_stock_symbol(st.session_state.get(input_key, ""))
         requested = "AAPL" if requested == "APPL" else requested
+        if not can_analyze_ticker(requested):
+            _lock_ticker(requested, "primary")
+            return
+        st.session_state.pop(_LOCKED, None)
         current = st.session_state.get(_PRIMARY)
         # A text commit followed by a button click must not load twice or
         # replace a successful result with an empty-field error.
         if current and current["symbol"] == requested and not st.session_state.get(_ERROR):
+            st.session_state[_COMPARISONS] = [
+                item for item in st.session_state.get(_COMPARISONS, [])
+                if can_analyze_ticker(item["symbol"])
+            ]
             st.session_state[input_key] = requested
             return
         history = _load_history(requested)
@@ -98,7 +115,7 @@ def _replace_primary(input_key=_PRIMARY_INPUT):
         st.session_state[_REMOVED] = False
         st.session_state[_COMPARISONS] = [
             item for item in st.session_state.get(_COMPARISONS, [])
-            if item["symbol"] != history["symbol"]
+            if item["symbol"] != history["symbol"] and can_analyze_ticker(item["symbol"])
         ]
         last = date.fromisoformat(history["dates"][-1])
         st.session_state[_DATE_INPUT] = last + timedelta(days=365)
@@ -119,7 +136,12 @@ def _commit_primary_input(input_key):
 
 def _add_comparison():
     try:
-        history = _load_history(st.session_state.get(_COMPARE_INPUT, ""))
+        requested = normalize_stock_symbol(st.session_state.get(_COMPARE_INPUT, ""))
+        requested = "AAPL" if requested == "APPL" else requested
+        if not can_analyze_ticker(requested):
+            _lock_ticker(requested, "comparison")
+            return
+        history = _load_history(requested)
         primary = st.session_state.get(_PRIMARY)
         symbols = {item["symbol"] for item in st.session_state.get(_COMPARISONS, [])}
         if primary:
@@ -130,6 +152,7 @@ def _add_comparison():
             *st.session_state.get(_COMPARISONS, []), history
         ]
         st.session_state[_ERROR] = None
+        st.session_state.pop(_LOCKED, None)
         st.session_state[_COMPARE_INPUT] = ""
     except ValueError as exc:
         st.session_state[_ERROR] = str(exc)
@@ -359,6 +382,25 @@ def _render_winner_analysis(primary, reading):
 
 def render_mean_reversion_workspace():
     """Render the independent Mean Reversion stock-analysis workspace."""
+    retry = st.query_params.get("requested_ticker")
+    checkout_error = st.query_params.get("checkout_error") == "1"
+    if retry:
+        del st.query_params["requested_ticker"]
+        st.query_params.pop("checkout_error", None)
+        st.session_state[_PRIMARY_INPUT] = retry
+        st.session_state[_TOP_PRIMARY_INPUT] = retry
+        _replace_primary()
+    locked = st.session_state.get(_LOCKED)
+    if locked and can_analyze_ticker(locked):
+        if st.session_state.get(_LOCKED_MODE) == "comparison":
+            if any(item["symbol"] == locked for item in st.session_state.get(_COMPARISONS, [])):
+                st.session_state.pop(_LOCKED, None)
+            else:
+                st.session_state[_COMPARE_INPUT] = locked
+                _add_comparison()
+        else:
+            st.session_state[_PRIMARY_INPUT] = locked
+            _replace_primary()
     st.markdown(
         """
         <style>
@@ -382,6 +424,20 @@ def render_mean_reversion_workspace():
     for key, initial in ((_COMPARISONS, []), (_ERROR, None), (_AUTO_INIT, False)):
         if key not in st.session_state:
             st.session_state[key] = initial
+    primary = st.session_state.get(_PRIMARY)
+    # Recheck retained results after sign-out/account changes before any fit,
+    # company lookup, score calculation, figure serialization or component call.
+    if not st.session_state.get(_LOCKED):
+        for history in ([primary] if primary else []) + st.session_state[_COMPARISONS]:
+            if not can_analyze_ticker(history["symbol"]):
+                _lock_ticker(history["symbol"], "primary" if history is primary else "comparison")
+                break
+    if st.session_state.get(_LOCKED):
+        render_ticker_unlock(
+            st.session_state[_LOCKED],
+            "Checkout is unavailable. Please try again." if checkout_error else None,
+        )
+        return
     # A failed first request must not permanently mark an empty chart initialized.
     # Also recover already-open sessions left empty by the old initialization.
     if not st.session_state.get(_PRIMARY) and not st.session_state.get(_REMOVED):

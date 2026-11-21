@@ -1,4 +1,4 @@
-"""The complete app is public; optional identity and billing grant no features."""
+"""Legacy named features stay public; page one separately checks ticker access."""
 from pathlib import Path
 from unittest.mock import MagicMock, Mock, patch
 

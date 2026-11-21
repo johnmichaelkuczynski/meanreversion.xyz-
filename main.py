@@ -4,6 +4,7 @@ import streamlit as st
 from clean_presentation import apply_clean_presentation
 from zhi_branding import render_zhi_branding
 from auth import render_google_login
+from ticker_access import resume_ticker_purchase
 
 
 st.set_page_config(page_title="Mean Reversion", layout="wide")
@@ -19,7 +20,7 @@ if st.query_params.get("checkout") in {"success", "cancelled"}:
     from account_header import _handle_checkout_return
     _handle_checkout_return()
 
-# Sign-in and payment are optional. Every visitor receives the complete workspaces.
+# Page-one paid ticker requests use a single Google-to-Stripe continuation.
 from mean_reversion_workspace import render_mean_reversion_workspace
 
 page = st.navigation(
@@ -29,4 +30,5 @@ page = st.navigation(
     ],
     position="top",
 )
-page.run()
+if not resume_ticker_purchase():
+    page.run()

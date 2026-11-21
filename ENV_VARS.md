@@ -109,21 +109,24 @@ That is not evidence of a successful Google-account login.
 
 ## Application access and administrator exemption
 
-Every visitor can open both app pages and use every feature without signing in
-or paying. All prices, scores, charts, projections, rankings, readouts and
-advanced analyses are fully visible. There are no entry walls or redactions.
-Google login is optional and unlocks nothing. The existing Google and Stripe
-integration code, routes and environment variable names remain intact.
+On page 1, SOXL, QQQ and AAPL are fully available without sign-in or payment,
+including comparisons. Other tickers require verified paid access and otherwise
+show one clean $1,500 purchase panel instead of running or displaying analysis.
+Its button continues through native Google sign-in to Stripe Checkout for the
+existing `STRIPE_PRICE_ID`. Allowed results are never redacted or blurred.
+Page 2 retains its existing access behavior. Google OAuth settings, Stripe
+objects, routes and environment variable names remain unchanged.
 
 Set `ADMIN_EMAILS` to the comma-separated administrator email allowlist in the
 actual server's environment. Matching ignores case and surrounding whitespace.
 Only authenticated, verified Google identities qualify for the owner exemption
 inside optional billing operations; no administrator address is built into
-application code. This setting does not restrict application access.
+application code. Matching owners have full access before any payment check.
 
 Set this variable in Coolify as well as the workspace when deploying there:
 workspace environment settings do not configure an external server. A missing
-administrator allowlist does not hide values or block any application feature.
+administrator allowlist does not affect the three free tickers; configure it
+correctly to preserve the owner's exemption for all other tickers and payments.
 
 Development previews remain automatically signed in and do not charge users.
 Optional purchase records remain tied to the authenticated account, not URL parameters.

@@ -13,6 +13,7 @@ import numpy as np
 import pandas as pd
 import mean_reversion_workspace as w
 def history(symbol):
+    st.session_state.setdefault("fixture_downloads", []).append(symbol)
     dates = pd.bdate_range(end="2026-11-20", periods=1600)
     prices = np.exp(3 + .001*np.arange(1600) + .12*np.sin(np.arange(1600)/30))
     return {"symbol":symbol,"dates":dates.strftime("%Y-%m-%d").tolist(),
@@ -46,6 +47,6 @@ def test_guest_sees_real_original_scores_prices_probabilities_and_projections(mo
                                     for row in args["rows"])
         assert max(args["figure"]["data"][1]["x"]) > "2026-11-20"
         assert not app.date_input(key="mr_workspace_projection_date").disabled
-        app.text_input(key="mr_workspace_top_primary_input").set_value("MSFT").run()
+        app.text_input(key="mr_workspace_top_primary_input").set_value("QQQ").run()
         assert not app.exception
-        assert app.session_state["mr_workspace_primary"]["symbol"] == "MSFT"
+        assert app.session_state["mr_workspace_primary"]["symbol"] == "QQQ"

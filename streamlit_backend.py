@@ -14,6 +14,7 @@ from streamlit.web.server.server import Server
 from tornado.web import RequestHandler
 
 from seo import render_index, robots_txt, sitemap_xml
+from ticker_purchase_routes import PurchaseStart, PurchaseLeave
 
 
 class PublicDocumentHandler(RequestHandler):
@@ -43,7 +44,10 @@ def install_public_routes(application, *, production: bool):
     template = Path(file_util.get_static_dir(), "index.html").read_text()
     recovery = Path(__file__).with_name("preview_recovery.js").read_text()
     template = template.replace("</head>", "<script>" + recovery + "</script></head>")
-    routes = []
+    routes = [
+        (r"/api/full-access/start", PurchaseStart),
+        (r"/api/full-access/leave", PurchaseLeave),
+    ]
     for path, body, content_type in [
         (r"/", render_index(template, production=production), "text/html; charset=utf-8"),
         (r"/robots\.txt", robots_txt(production=production), "text/plain; charset=utf-8"),
