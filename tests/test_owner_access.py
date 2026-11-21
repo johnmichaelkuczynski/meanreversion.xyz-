@@ -6,6 +6,7 @@ import access
 import account_header
 import auth
 import billing
+import site_gate
 
 ADMIN = {
     "is_logged_in": True, "email_verified": True,
@@ -59,3 +60,59 @@ def test_admin_does_not_grant_access_to_next_user():
     assert not auth.is_admin(other)
     assert not access.has_paid_access(other, paid_verified=False, preview=False)
     assert access.has_paid_access(other, paid_verified=True, preview=False)
+
+
+def test_live_allowlist_unlocks_every_gate_despite_cached_payment_failure(monkeypatch):
+    """Adding the owner at runtime must override the exact reported failure."""
+    monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.setenv("ADMIN_EMAILS", "someone-else@example.test")
+    state = {
+        "_paid_access_verified": False,
+        "_paid_access_subject": ADMIN["sub"],
+        "_paid_access_source": "",
+        "_result_access_check_failed": True,
+        "_billing_access": {"paid": False},
+    }
+    forbidden = AssertionError("An administrator reached a payment check")
+    with patch.object(site_gate, "st") as gate_ui, \
+         patch.object(access, "st") as access_ui, \
+         patch.object(site_gate, "get_current_user", return_value=ADMIN), \
+         patch.object(access, "get_current_user", return_value=ADMIN), \
+         patch.object(account_header, "get_current_user", return_value=ADMIN), \
+         patch.object(site_gate, "_handle_checkout_return", side_effect=forbidden), \
+         patch.object(site_gate, "paid_access_for_current_user", side_effect=forbidden), \
+         patch.object(site_gate, "get_plan", side_effect=forbidden), \
+         patch.object(site_gate, "create_checkout", side_effect=forbidden), \
+         patch.object(account_header, "get_paid_access", side_effect=forbidden), \
+         patch.object(billing, "stripe_client", side_effect=forbidden), \
+         patch.object(billing, "user_identity", side_effect=forbidden):
+        gate_ui.session_state = access_ui.session_state = state
+        assert not access.has_paid_access(preview=False)
+
+        monkeypatch.setenv("ADMIN_EMAILS", "first@example.test, ADMIN@EXAMPLE.TEST ")
+        assert site_gate.refresh_site_access()
+        assert state["_paid_access_source"] == "admin"
+        assert "_result_access_check_failed" not in state
+        assert access.has_paid_access(paid_verified=False, preview=False)
+        assert access.can_use_market_chat(paid_verified=False, preview=False)
+        assert access.has_unlimited_credits(ADMIN)
+        for feature in access.PAID_FEATURES | {
+            "Detailed scores", "Full graphs", "Options Projection", "Rankings",
+        }:
+            assert access.can_access(feature, paid_verified=False, preview=False)
+            assert access.require_paid_access(
+                feature, ADMIN,
+                lambda: pytest.fail("An administrator saw a purchase dialog"),
+                paid_verified=False, preview=False,
+            )
+        assert account_header.paid_access_for_current_user(force=True)
+        assert billing.get_paid_access(ADMIN)
+        assert billing.verify_checkout(ADMIN, None)
+        site_gate.render_unlock_prompt("owner-regression")
+        gate_ui.info.assert_not_called()
+        gate_ui.warning.assert_not_called()
+        gate_ui.link_button.assert_not_called()
+
+        # An old admin session must not become an unconditional paid grant.
+        monkeypatch.setenv("ADMIN_EMAILS", "someone-else@example.test")
+        assert not access.has_paid_access(preview=False)
