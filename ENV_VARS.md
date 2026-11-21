@@ -109,24 +109,24 @@ That is not evidence of a successful Google-account login.
 
 ## Application access and administrator exemption
 
-Both production app pages can be opened without signing in or paying. Visitors
-can try stock lookup and view partial results. Full graphs, detailed scores,
-projections, rankings and advanced analyses require Google sign-in and verified
-paid access; redaction is enforced before those results reach the browser.
+Every visitor can open both app pages and use every feature without signing in
+or paying. All prices, scores, charts, projections, rankings, readouts and
+advanced analyses are fully visible. There are no entry walls or redactions.
+Google login is optional and unlocks nothing. The existing Google and Stripe
+integration code, routes and environment variable names remain intact.
 
 Set `ADMIN_EMAILS` to the comma-separated administrator email allowlist in the
 actual server's environment. Matching ignores case and surrounding whitespace.
-Only authenticated, verified Google identities qualify. Administrators skip
-all checkout, payment verification, paywalls and app quotas; no administrator
-address is built into application code.
+Only authenticated, verified Google identities qualify for the owner exemption
+inside optional billing operations; no administrator address is built into
+application code. This setting does not restrict application access.
 
 Set this variable in Coolify as well as the workspace when deploying there:
-workspace environment settings do not configure an external server. Checkout
-is disabled if the administrator allowlist is empty, preventing accidental
-payment prompts while access configuration is incomplete.
+workspace environment settings do not configure an external server. A missing
+administrator allowlist does not hide values or block any application feature.
 
 Development previews remain automatically signed in and do not charge users.
-Non-admin paid access is tied to the authenticated account, not URL parameters.
+Optional purchase records remain tied to the authenticated account, not URL parameters.
 The configured `STRIPE_PRICE_ID` must be an existing price accessible with the
 configured Stripe account key. This change does not create or alter Stripe
 products, prices or webhooks.

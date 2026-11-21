@@ -1,4 +1,4 @@
-"""Public workspace access with account-bound paid-result entitlements."""
+"""Unrestricted application features, separate from optional billing status."""
 from __future__ import annotations
 
 import re
@@ -19,10 +19,10 @@ OWNER = "owner"
 
 
 def has_unlimited_credits(user=None) -> bool:
-    """Permanent exemption from application credit quotas, not provider billing."""
-    return is_owner(user)
+    """Application usage is unrestricted; provider billing is unchanged."""
+    return True
 
-# Named feature gates within the globally protected application.
+# Legacy feature names retained for compatibility; none restrict access.
 PAID_FEATURES = frozenset(
     {
         "Vol Surface",
@@ -78,7 +78,7 @@ def has_paid_access(
     paid_verified: bool | None = None,
     preview: bool | None = None,
 ) -> bool:
-    """Require verified payment or an administrator exemption in production."""
+    """Report optional billing status; this never controls app feature access."""
     return access_tier(user, paid_verified=paid_verified, preview=preview) in {PAID, OWNER}
 
 
@@ -88,7 +88,7 @@ def can_use_market_chat(
     paid_verified: bool | None = None,
     preview: bool | None = None,
 ) -> bool:
-    return has_paid_access(user, paid_verified=paid_verified, preview=preview)
+    return True
 
 
 def can_access(
@@ -98,10 +98,8 @@ def can_access(
     paid_verified: bool | None = None,
     preview: bool | None = None,
 ) -> bool:
-    """Public containers can open; detailed result features still require payment."""
-    if feature in PUBLIC_FEATURES:
-        return True
-    return has_paid_access(user, paid_verified=paid_verified, preview=preview)
+    """Every feature is public, independently of identity or purchase status."""
+    return True
 
 
 def _button_key(feature: str) -> str:
@@ -113,23 +111,8 @@ def render_paid_gate(
     feature: str,
     purchase_dialog: Callable[[], Any],
 ) -> None:
-    """Render a friendly paid-feature invitation and open real checkout.
-
-    The callback is supplied by ``app.py`` so this module does not duplicate
-    checkout logic or create a second purchase path.
-    """
-    st.markdown(f"### {feature}")
-    st.info(
-        f"{feature} is part of SOXL Pro full access. "
-        "Buy full access to unlock it."
-    )
-    if st.button(
-        "Buy full access",
-        key=_button_key(feature),
-        type="primary",
-        width="stretch",
-    ):
-        purchase_dialog()
+    """Legacy compatibility: never render a gate or initiate a purchase."""
+    return None
 
 
 def require_paid_access(
@@ -140,10 +123,5 @@ def require_paid_access(
     paid_verified: bool | None = None,
     preview: bool | None = None,
 ) -> bool:
-    """Render a gate when needed and return whether feature code may run."""
-    if has_paid_access(
-        user, paid_verified=paid_verified, preview=preview
-    ):
-        return True
-    render_paid_gate(feature, purchase_dialog)
-    return False
+    """Legacy compatibility: all visitors may execute every feature."""
+    return True

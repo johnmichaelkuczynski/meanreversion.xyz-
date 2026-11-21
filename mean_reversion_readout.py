@@ -4,7 +4,6 @@ from datetime import date
 from html import escape
 
 import numpy as np
-import pandas as pd
 import streamlit as st
 
 from mean_reversion_winner import CONFIG
@@ -67,7 +66,7 @@ def summary_lines(analysis, scores, position):
     ]
 
 
-def render_stock_readout(history, company_name, analysis, scores, channel=None, redacted=False):
+def render_stock_readout(history, company_name, analysis, scores, channel=None):
     """Render the primary decision facts before any supporting controls."""
     symbol = escape(str(history.get("symbol", "Ticker unavailable")))
     company = escape(str(company_name or "Company name unavailable"))
@@ -80,9 +79,8 @@ def render_stock_readout(history, company_name, analysis, scores, channel=None, 
         chosen = st.session_state.get(POSITION_DATE, last)
         st.session_state[POSITION_DATE] = min(last, max(first, chosen))
         selected = st.session_state[POSITION_DATE]
-        if not redacted:
-            position = (chart_position(history, channel, selected) if has_chart_mean
-                        else dated_position(history, analysis, selected))
+        position = (chart_position(history, channel, selected) if has_chart_mean
+                    else dated_position(history, analysis, selected))
 
     if analysis is None:
         verdict = "UNAVAILABLE — analysis could not be calculated"
@@ -96,38 +94,21 @@ def render_stock_readout(history, company_name, analysis, scores, channel=None, 
         dated = "Insufficient five-year trend history"
     else:
         verdict = analysis["verdict"]
-        reversion = (f"{analysis['pull_strength']} — REDACTED" if redacted
-                     else f"{analysis['pull_strength']} — {analysis['pull']:.4f}")
+        reversion = f"{analysis['pull_strength']} — {analysis['pull']:.4f}"
         trend = "UP" if analysis["slope_pct"] > 0 else "NOT UP"
-        slope = "REDACTED" if redacted else f"{analysis['slope_pct']:+.2f}% per year"
-        if redacted:
-            dated = "REDACTED"
-        else:
-            day, gap, _percentile = position
-            direction = "ABOVE" if gap > 0 else "BELOW" if gap < 0 else "ON"
-            dated = (
-                f"{day}: {abs(gap):.1f}% {direction} the mean"
-            )
+        slope = f"{analysis['slope_pct']:+.2f}% per year"
+        day, gap, _percentile = position
+        direction = "ABOVE" if gap > 0 else "BELOW" if gap < 0 else "ON"
+        dated = (
+            f"{day}: {abs(gap):.1f}% {direction} the mean"
+        )
 
     if has_chart_mean:
         trend = "UP" if channel["slope_pct"] > 0 else "NOT UP"
-        slope = "REDACTED" if redacted else f"{channel['slope_pct']:+.2f}% per year"
-        if redacted:
-            dated = "REDACTED"
-        else:
-            day, gap, _percentile = position
-            direction = "ABOVE" if gap > 0 else "BELOW" if gap < 0 else "ON"
-            dated = f"{day}: {abs(gap):.1f}% {direction} the mean"
-
-    if redacted:
-        reversion = (f"{analysis['pull_strength']} — REDACTED"
-                     if analysis is not None and analysis.get("has_mean")
-                     else reversion)
-        steel_score = "REDACTED"
-        paper_score = "REDACTED"
-    else:
-        steel_score = _score(scores["steel"]) if scores else "Unavailable"
-        paper_score = _score(scores["paper"]) if scores else "Unavailable"
+        slope = f"{channel['slope_pct']:+.2f}% per year"
+        day, gap, _percentile = position
+        direction = "ABOVE" if gap > 0 else "BELOW" if gap < 0 else "ON"
+        dated = f"{day}: {abs(gap):.1f}% {direction} the mean"
 
     st.markdown(
         f"""
@@ -168,8 +149,8 @@ def render_stock_readout(history, company_name, analysis, scores, channel=None, 
           <div class="mr-company">Company: {company}</div>
           <div class="mr-fact">Verdict: {escape(verdict)}</div>
           <div class="mr-fact">Pull: {escape(reversion)}</div>
-          <div class="mr-fact">Steel hands: {escape(steel_score)}</div>
-          <div class="mr-fact">Paper hands: {escape(paper_score)}</div>
+          <div class="mr-fact">Steel hands: {escape(_score(scores['steel']) if scores else 'Unavailable')}</div>
+          <div class="mr-fact">Paper hands: {escape(_score(scores['paper']) if scores else 'Unavailable')}</div>
           <div class="mr-fact">Mean trend: {escape(trend)}</div>
           <div class="mr-fact">Annualized slope: {escape(slope)}</div>
           <div class="mr-fact">Position: {escape(dated)}</div>
@@ -190,7 +171,7 @@ def render_stock_readout(history, company_name, analysis, scores, channel=None, 
         )
 
 
-def render_score_details(analysis, scores, style_key, history=None, redacted=False):
+def render_score_details(analysis, scores, style_key, history=None):
     st.subheader("Mean-reversion components")
     if not analysis["has_mean"]:
         st.write("Five years of adjusted daily closes are required for a scored mean.")
@@ -201,54 +182,28 @@ def render_score_details(analysis, scores, style_key, history=None, redacted=Fal
     chosen = min(last, max(first, chosen))
     with st.expander("Additional model facts"):
         if history is not None:
-            if redacted and analysis["has_mean"]:
-                redacted_lines = [
-                    ("Pull", f"{analysis['pull_strength']} — REDACTED"),
-                    ("Weighted excursion size L", "REDACTED"),
-                    ("Weighted swing W", "REDACTED"),
-                    ("Weighted annualized volatility", "REDACTED"),
-                    ("Mean trend growth", "REDACTED"),
-                    (f"Position on {chosen.isoformat()}", "REDACTED"),
-                    ("Steel hands score", "REDACTED"),
-                    ("Paper hands score", "REDACTED"),
-                    ("Deep-dip flag", "REDACTED"),
-                ]
-                lines = redacted_lines
-            else:
-                position = dated_position(history, analysis, chosen)
-                lines = summary_lines(analysis, scores, position)
-            for label, value in lines:
+            position = dated_position(history, analysis, chosen)
+            for label, value in summary_lines(analysis, scores, position):
                 st.caption(f"{label}: {value}")
     style = st.radio("Score emphasis", ("Steel hands", "Paper hands"),
                      horizontal=True, key=style_key)
     keys = ("steel", "paper") if style == "Steel hands" else ("paper", "steel")
     cols = st.columns(2)
     for column, key in zip(cols, keys):
-        score = "REDACTED" if redacted else _score(scores[key])
-        column.metric(f"{key.title()} hands score · 0–100", score)
+        column.metric(f"{key.title()} hands score · 0–100", _score(scores[key]))
     st.write(f"Shared growth verdict: {analysis['verdict']}.")
-    if redacted:
-        st.write(f"Pull to the mean: {analysis['pull_strength']} (REDACTED).")
-        st.write("Mean line rising REDACTED per year."
-                 if analysis["slope_pct"] >= 0 else
-                 "Mean line falling REDACTED per year.")
-        st.write("Typical swing: REDACTED from the mean.")
-        st.write("Largest weighted excursion: REDACTED.")
-        st.write("Deep-dip flag: REDACTED.")
-        st.write("Range-tradeable: REDACTED.")
-    else:
-        st.write(f"Pull to the mean: {analysis['pull_strength']} ({analysis['pull']:.4f}).")
-        st.write(f"Mean line rising {analysis['slope_pct']:.2f}% per year."
-                 if analysis["slope_pct"] >= 0 else
-                 f"Mean line falling {abs(analysis['slope_pct']):.2f}% per year.")
-        st.write(f"Typical swing: {np.expm1(analysis['swing']):.1%} from the mean.")
-        longest = analysis["largest_excursion"]
-        if longest:
-            st.write(f"Largest weighted excursion: {longest['size']:.4f} log-years; "
-                     f"{longest['years']:.2f} years, up to {longest['maximum_gap_pct']:.1f}% away.")
-        st.write("Clearly below the mean." if analysis["deep_dip"] else "Not currently clearly below the mean.")
-        if analysis["range_tradeable"]:
-            st.write("Range-tradeable: buy only when clearly below the mean.")
+    st.write(f"Pull to the mean: {analysis['pull_strength']} ({analysis['pull']:.4f}).")
+    st.write(f"Mean line rising {analysis['slope_pct']:.2f}% per year."
+             if analysis["slope_pct"] >= 0 else
+             f"Mean line falling {abs(analysis['slope_pct']):.2f}% per year.")
+    st.write(f"Typical swing: {np.expm1(analysis['swing']):.1%} from the mean.")
+    longest = analysis["largest_excursion"]
+    if longest:
+        st.write(f"Largest weighted excursion: {longest['size']:.4f} log-years; "
+                 f"{longest['years']:.2f} years, up to {longest['maximum_gap_pct']:.1f}% away.")
+    st.write("Clearly below the mean." if analysis["deep_dip"] else "Not currently clearly below the mean.")
+    if analysis["range_tradeable"]:
+        st.write("Range-tradeable: buy only when clearly below the mean.")
     st.caption("Ranking scores are heuristic scores, not probabilities.")
     with st.expander("Method and weighted excursions"):
         st.write("All available adjusted daily closes. Seven-year recency half-life. "
@@ -260,9 +215,4 @@ def render_score_details(analysis, scores, style_key, history=None, redacted=Fal
         st.write("Steel = growth × Pull × (1 + W). "
                  "Paper = growth × Pull / (1 + 3W)^4. "
                  "Each is normalized to its maximum across SOXL, TQQQ, SOXX, QQQ and SPY, capped at 100.")
-        if redacted:
-            source = pd.DataFrame(analysis["excursions"])
-            table = pd.DataFrame("REDACTED", index=source.index, columns=source.columns)
-            st.dataframe(table, hide_index=True, use_container_width=True)
-        else:
-            st.dataframe(analysis["excursions"], hide_index=True, use_container_width=True)
+        st.dataframe(analysis["excursions"], hide_index=True, use_container_width=True)

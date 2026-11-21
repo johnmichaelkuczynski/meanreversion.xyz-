@@ -28,7 +28,6 @@ from top_market_snapshot import render_market_snapshot
 from chart_market_feed import fetch_chart_market_feed, update_chart_market_feed
 from auth import get_current_user
 from account_header import render_account_header, show_purchase_options
-from access import can_use_market_chat, require_paid_access, has_paid_access
 from app_analytics import flush_analytics, track_event
 from seo import ABOUT_HTML, TITLE
 
@@ -43,8 +42,7 @@ current_user = get_current_user()
 render_account_header()
 render_top_soxl_price()
 from app_diagnostics import render_full_diagnostics
-if has_paid_access():
-    render_full_diagnostics()
+render_full_diagnostics()
 
 if "lines" not in st.session_state:
     st.session_state.lines = []
@@ -228,11 +226,6 @@ try:
     quote = fetch_live_quote()
 except Exception:
     quote = None
-
-if not has_paid_access():
-    from public_results import render_soxl_preview
-    render_soxl_preview(data)
-    st.stop()
 
 @st.fragment(run_every="30s")
 def _background_update_diagnostics(saved):
@@ -634,10 +627,7 @@ with tab_chart:
             "Ask anything about the app—charts, benchmarks, probabilities, options, "
             "volatility, dislocation, strategies, backtests, or what a result means."
         )
-        market_chat_allowed = can_use_market_chat(current_user)
-        if not market_chat_allowed:
-            st.info("Sign in to ask SOXL Pro questions about the market and your results.")
-        elif st.session_state.market_chat_messages:
+        if st.session_state.market_chat_messages:
             if st.button("Start new chat", key="market_chat_reset"):
                 st.session_state.market_chat_messages = []
                 st.rerun()
@@ -650,17 +640,13 @@ with tab_chart:
                 "Engine with Backtest,” or “What are these chart lines telling me?”_"
             )
 
-        if market_chat_allowed:
-            with st.form("market_chart_chat_form", clear_on_submit=True):
-                market_prompt = st.text_input(
-                    "Your question",
-                    placeholder="Talk with SOXL Pro…",
-                    label_visibility="collapsed",
-                )
-                ask_market = st.form_submit_button("Ask", type="primary")
-        else:
-            market_prompt = ""
-            ask_market = False
+        with st.form("market_chart_chat_form", clear_on_submit=True):
+            market_prompt = st.text_input(
+                "Your question",
+                placeholder="Talk with SOXL Pro…",
+                label_visibility="collapsed",
+            )
+            ask_market = st.form_submit_button("Ask", type="primary")
 
         if ask_market and market_prompt.strip():
             track_event("market_question_submitted", {"feature": "market_chat"})
@@ -1541,21 +1527,19 @@ with tab_chart:
                 st.info(f"**Verdict:** A {r['magnitude']}%+ move in either direction happened {r['prob']:.0f}% of the time over {r['horizon_label']}.")
 
 with tab_vol:
-    if tab_vol.open and require_paid_access("Vol Surface", current_user, show_purchase_options):
+    if tab_vol.open:
         render_vol_surface_tab()
 
 with tab_call_rr:
-    if tab_call_rr.open and require_paid_access(
-        "Call Risk/Reward", current_user, show_purchase_options
-    ):
+    if tab_call_rr.open:
         render_call_risk_reward_tab()
 
 with tab_disloc:
-    if tab_disloc.open and require_paid_access("Dislocation", current_user, show_purchase_options):
+    if tab_disloc.open:
         render_dislocation_tab()
 
 with tab_backtest:
-    if tab_backtest.open and require_paid_access("Backtest", current_user, show_purchase_options):
+    if tab_backtest.open:
         render_backtest_tab()
 
 def _render_strategy_tab():
@@ -1629,9 +1613,7 @@ def _render_strategy_tab():
 
 
 with tab_strategy:
-    if tab_strategy.open and require_paid_access(
-        "Strategy Builder", current_user, show_purchase_options
-    ):
+    if tab_strategy.open:
         _render_strategy_tab()
 
 with tab_area:

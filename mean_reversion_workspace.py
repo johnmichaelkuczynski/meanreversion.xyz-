@@ -18,10 +18,6 @@ from mean_reversion_winner import (
     normalize_scores,
 )
 from stock_chart_api import load_stock_history, load_stock_name, normalize_stock_symbol
-from access import has_paid_access
-from public_results import historical_channel, redacted_channel_rows
-from preview_ui import render_redacted_sections
-from site_gate import render_unlock_prompt
 
 _PRIMARY = "mr_workspace_primary"
 _COMPARISONS = "mr_workspace_comparisons"
@@ -206,9 +202,7 @@ def _comparison_points(primary, comparison):
     return days, [c[day] * factor for day in days], [c[day] for day in days]
 
 
-def _make_figure(primary, comparisons, model, readouts, redacted=False):
-    if redacted and model:
-        model = historical_channel(model)
+def _make_figure(primary, comparisons, model, readouts):
     fig = go.Figure()
     if primary:
         # Pin the bottom of the log plot so the shaded buy zone has a stable floor.
@@ -250,9 +244,6 @@ def _make_figure(primary, comparisons, model, readouts, redacted=False):
         for index, day in enumerate(model["line_dates"]):
             bits = [day]
             for kind in ("upper", "median", "lower"):
-                if redacted:
-                    bits += ["REDACTED", "REDACTED"]
-                    continue
                 target = model["lines"][kind][index]
                 probability = (hit_probability(model, target, day)
                                if day >= model["last_date"] else None)
@@ -320,7 +311,7 @@ def _make_figure(primary, comparisons, model, readouts, redacted=False):
     return fig
 
 
-def _render_readouts(rows, selected_date, redacted=False):
+def _render_readouts(rows, selected_date):
     colors = _COLORS
     columns = st.columns(3)
     for column, row in zip(columns, rows):
@@ -331,8 +322,8 @@ def _render_readouts(rows, selected_date, redacted=False):
                 f"color:{colors[row['kind']]}'>{row['label']}</div></div>",
                 unsafe_allow_html=True,
             )
-            st.metric("Target stock price", "REDACTED" if redacted else _price(row["target_price"]))
-            st.metric("Probability of hitting by date", "REDACTED" if redacted else _probability(row["hit_probability"]))
+            st.metric("Target stock price", _price(row["target_price"]))
+            st.metric("Probability of hitting by date", _probability(row["hit_probability"]))
             st.caption(f"By {selected_date:%b %d, %Y}")
     st.caption(
         "Historical-model estimates are not empirically calibrated. Probability means a "
@@ -352,7 +343,7 @@ def _winner_reading(primary):
     return analysis, normalize_scores(analysis, references.values()), unavailable
 
 
-def _render_winner_analysis(primary, reading, redacted=False):
+def _render_winner_analysis(primary, reading):
     """Expose components and both event cohorts without changing page two."""
     if not primary:
         return
@@ -363,15 +354,11 @@ def _render_winner_analysis(primary, reading, redacted=False):
     if unavailable:
         st.write("Normalized scores unavailable: reference history missing for " +
                  ", ".join(unavailable) + ". Pull and slope remain available.")
-    if redacted:
-        render_score_details(analysis, scores, _SCORE_STYLE, primary, redacted=True)
-    else:
-        render_score_details(analysis, scores, _SCORE_STYLE, primary)
+    render_score_details(analysis, scores, _SCORE_STYLE, primary)
 
 
 def render_mean_reversion_workspace():
     """Render the independent Mean Reversion stock-analysis workspace."""
-    full_results = has_paid_access()
     st.markdown(
         """
         <style>
@@ -409,15 +396,7 @@ def render_mean_reversion_workspace():
             f"{escape(st.session_state[_ERROR])}</div>",
             unsafe_allow_html=True,
         )
-    reading = (None, None, [])
-    if primary:
-        if full_results:
-            reading = _winner_reading(primary)
-        else:
-            try:
-                reading = (analyze_winner(primary), None, [])
-            except Exception:
-                pass
+    reading = _winner_reading(primary) if primary else (None, None, [])
     if not primary:
         if st.session_state.get(_ERROR):
             st.error(st.session_state[_ERROR])
@@ -438,27 +417,20 @@ def render_mean_reversion_workspace():
         st.session_state[_DATE_INPUT] = value
         with st.spinner("Fitting the price channel…"):
             try:
-                model = _cached_channel(primary, value.isoformat() if full_results else last.isoformat())
+                model = _cached_channel(primary, value.isoformat())
             except ValueError:
                 st.write("That projection exceeds the numerical price range. Showing the fitted history; choose an earlier end date.")
                 value = last
                 st.session_state[_DATE_INPUT] = value
                 model = _cached_channel(primary, value.isoformat())
         selected = value
-        if model.get("has_mean"):
-            rows = channel_readout(model, selected) if full_results else redacted_channel_rows(selected)
+        rows = channel_readout(model, selected) if model.get("has_mean") else []
 
     if primary:
-        if full_results:
-            render_stock_readout(
-                primary, _cached_company_name(primary["symbol"]), reading[0], reading[1],
-                channel=model,
-            )
-        else:
-            render_stock_readout(
-                primary, _cached_company_name(primary["symbol"]), reading[0], None,
-                channel=model, redacted=True,
-            )
+        render_stock_readout(
+            primary, _cached_company_name(primary["symbol"]), reading[0], reading[1],
+            channel=model,
+        )
         st.date_input(
             "Projection and readout date",
             min_value=date.fromisoformat(primary["dates"][-1]),
@@ -468,17 +440,10 @@ def render_mean_reversion_workspace():
         )
 
     comparisons = st.session_state.get(_COMPARISONS, [])
-    if full_results:
-        render_channel_chart(
-            _make_figure(primary, comparisons, model, rows),
-            primary, model, rows, selected,
-        )
-    elif primary:
-        render_channel_chart(
-            _make_figure(primary, comparisons, model, rows, redacted=True),
-            primary, model, rows, selected, redacted=True,
-        )
-        render_unlock_prompt("mean_reversion")
+    render_channel_chart(
+        _make_figure(primary, comparisons, model, rows),
+        primary, model, rows, selected,
+    )
 
     controls = st.columns([1, 1, 1, 2])
     controls[0].button("Remove chart", on_click=_remove_chart, disabled=not primary,
@@ -495,10 +460,7 @@ def render_mean_reversion_workspace():
         st.button("Show SOXL example", on_click=_restore_default,
                   key="mr_restore_default", type="primary")
 
-    if full_results:
-        _render_winner_analysis(primary, reading)
-    else:
-        _render_winner_analysis(primary, reading, redacted=True)
+    _render_winner_analysis(primary, reading)
 
     with st.container(border=True, key="mr_replace_primary_form"):
         a, b = st.columns([5, 1])
@@ -525,18 +487,14 @@ def render_mean_reversion_workspace():
         right.caption(
             f"{history['symbol']} · normalized to primary price at first common date · "
             f"true adjusted prices remain available on hover"
-            if full_results else f"{history['symbol']} · full comparison results are redacted"
         )
     if st.session_state.get(_ERROR) and primary:
         st.error(st.session_state[_ERROR])
 
     if rows:
-        _render_readouts(rows, selected, redacted=not full_results)
+        _render_readouts(rows, selected)
 
-    if full_results:
-        render_illustrated_rankings()
-    else:
-        render_redacted_sections(["Full stock rankings"], "mr_rankings")
+    render_illustrated_rankings()
 
     if model:
         with st.expander("Mean-reversion method"):

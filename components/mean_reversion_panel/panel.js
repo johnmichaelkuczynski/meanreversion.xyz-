@@ -10,7 +10,6 @@
   var STORAGE_KEY = "mean-reversion-readout-layout-v1";
 
   function formatProbability(value, day, lastDate) {
-    if (value === "REDACTED") return "REDACTED";
     if (day && lastDate && day <= lastDate) return "Historical date — not a forecast";
     if (value === null || value === undefined || value === "") return "Not available";
     if (typeof value === "string") return value;
