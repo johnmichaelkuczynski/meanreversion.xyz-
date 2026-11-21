@@ -1,18 +1,20 @@
 ---
-name: Production access policy
-description: Google-and-payment entry wall, environment-configured admins, and development access.
+name: Public redacted app access
+description: No entry wall; visitors try partial results, paid users and admins see the full app.
 ---
 
-Every production app page requires a verified Google login and verified paid
-access. The public welcome page explains the product to ordinary investors;
-it must not expose the actual analysis app before access is granted.
+Visitors must be able to open and try both actual app pages without Google
+login or payment. Show real partial results, but redact full graphs, detailed
+results and selected scores until the user signs in and pays.
 
-**Why:** The user explicitly replaced the earlier public-investor presentation
-policy with a mandatory Google login and payment wall.
+**Why:** The user explicitly removed the entry/login wall and rejected
+replacing the app with a welcome/readme page.
 
-**How to apply:** Gate both app pages and all feature checks, not just selected
-tabs. Preserve existing verified purchases and subscriptions. Keep automatic
-development access separate; it must never initiate live checkout.
+**How to apply:** Preserve the complete paid app, Google login, Stripe, and
+existing verified purchases. Offer an inline unlock prompt within the working
+app. Withhold paid values on the server; do not send full results to the browser
+and merely blur them. Keep automatic development access unrestricted and
+separate; it must never initiate live checkout.
 
 Verified Google users on the comma-separated, case-insensitive `ADMIN_EMAILS`
 environment allowlist are paid administrators everywhere. Do not hardcode any

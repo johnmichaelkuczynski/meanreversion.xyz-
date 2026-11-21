@@ -18,10 +18,10 @@ SIGNED_IN_USER = {"is_logged_in": True, "sub": "user-1", "email": "member@exampl
 
 
 class AccessTests(unittest.TestCase):
-    def test_guest_cannot_access_any_app_feature(self):
+    def test_guest_can_open_public_app_but_not_paid_results(self):
         self.assertEqual(access_tier(GUEST_USER, preview=False), GUEST)
-        self.assertFalse(can_access("Chart & Probabilities", GUEST_USER, preview=False))
-        self.assertFalse(can_access("Snapshot", GUEST_USER, preview=False))
+        self.assertTrue(can_access("Chart & Probabilities", GUEST_USER, preview=False))
+        self.assertTrue(can_access("Snapshot", GUEST_USER, preview=False))
         self.assertFalse(can_use_market_chat(GUEST_USER, preview=False))
         self.assertFalse(
             can_access("Vol Surface", GUEST_USER, paid_verified=True, preview=False)

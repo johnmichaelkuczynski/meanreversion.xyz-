@@ -109,8 +109,10 @@ That is not evidence of a successful Google-account login.
 
 ## Application access and administrator exemption
 
-Both production app pages require Google sign-in and verified paid access.
-The welcome/readme remains public; the analysis workspaces do not.
+Both production app pages can be opened without signing in or paying. Visitors
+can try stock lookup and view partial results. Full graphs, detailed scores,
+projections, rankings and advanced analyses require Google sign-in and verified
+paid access; redaction is enforced before those results reach the browser.
 
 Set `ADMIN_EMAILS` to the comma-separated administrator email allowlist in the
 actual server's environment. Matching ignores case and surrounding whitespace.

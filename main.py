@@ -4,7 +4,7 @@ import streamlit as st
 from clean_presentation import apply_clean_presentation
 from zhi_branding import render_zhi_branding
 from auth import render_google_login
-from site_gate import require_site_access
+from site_gate import refresh_site_access
 
 
 st.set_page_config(page_title="Mean Reversion", layout="wide")
@@ -15,10 +15,9 @@ with branding:
     render_zhi_branding()
 with account:
     render_google_login()
-if not require_site_access():
-    st.stop()
+refresh_site_access()
 
-# Do not import or execute application workspaces before the shared gate.
+# Everyone can open the workspace. Each renderer withholds paid results.
 from mean_reversion_workspace import render_mean_reversion_workspace
 
 page = st.navigation(

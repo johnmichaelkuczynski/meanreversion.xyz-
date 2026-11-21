@@ -28,7 +28,7 @@ from top_market_snapshot import render_market_snapshot
 from chart_market_feed import fetch_chart_market_feed, update_chart_market_feed
 from auth import get_current_user
 from account_header import render_account_header, show_purchase_options
-from access import can_use_market_chat, require_paid_access
+from access import can_use_market_chat, require_paid_access, has_paid_access
 from app_analytics import flush_analytics, track_event
 from seo import ABOUT_HTML, TITLE
 
@@ -43,7 +43,8 @@ current_user = get_current_user()
 render_account_header()
 render_top_soxl_price()
 from app_diagnostics import render_full_diagnostics
-render_full_diagnostics()
+if has_paid_access():
+    render_full_diagnostics()
 
 if "lines" not in st.session_state:
     st.session_state.lines = []
@@ -227,6 +228,11 @@ try:
     quote = fetch_live_quote()
 except Exception:
     quote = None
+
+if not has_paid_access():
+    from public_results import render_soxl_preview
+    render_soxl_preview(data)
+    st.stop()
 
 @st.fragment(run_every="30s")
 def _background_update_diagnostics(saved):

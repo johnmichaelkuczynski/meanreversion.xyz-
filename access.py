@@ -1,4 +1,4 @@
-"""Server-backed access policy shared by both protected application pages."""
+"""Public workspace access with account-bound paid-result entitlements."""
 from __future__ import annotations
 
 import re
@@ -32,6 +32,7 @@ PAID_FEATURES = frozenset(
         "Strategy Builder",
     }
 )
+PUBLIC_FEATURES = frozenset({"Workspace", "Stock lookup", "Price preview", "Chart & Probabilities", "Snapshot"})
 
 
 def _logged_in(user: Mapping[str, Any] | None) -> bool:
@@ -97,7 +98,9 @@ def can_access(
     paid_verified: bool | None = None,
     preview: bool | None = None,
 ) -> bool:
-    """All app features follow the same server-side entitlement policy."""
+    """Public containers can open; detailed result features still require payment."""
+    if feature in PUBLIC_FEATURES:
+        return True
     return has_paid_access(user, paid_verified=paid_verified, preview=preview)
 
 

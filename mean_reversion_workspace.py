@@ -18,6 +18,10 @@ from mean_reversion_winner import (
     normalize_scores,
 )
 from stock_chart_api import load_stock_history, load_stock_name, normalize_stock_symbol
+from access import has_paid_access
+from public_results import preview_payload, render_preview_chart
+from preview_ui import render_preview_readout, render_redacted_sections
+from site_gate import render_unlock_prompt
 
 _PRIMARY = "mr_workspace_primary"
 _COMPARISONS = "mr_workspace_comparisons"
@@ -359,6 +363,7 @@ def _render_winner_analysis(primary, reading):
 
 def render_mean_reversion_workspace():
     """Render the independent Mean Reversion stock-analysis workspace."""
+    full_results = has_paid_access()
     st.markdown(
         """
         <style>
@@ -396,7 +401,15 @@ def render_mean_reversion_workspace():
             f"{escape(st.session_state[_ERROR])}</div>",
             unsafe_allow_html=True,
         )
-    reading = _winner_reading(primary) if primary else (None, None, [])
+    reading = (None, None, [])
+    if primary:
+        if full_results:
+            reading = _winner_reading(primary)
+        else:
+            try:
+                reading = (analyze_winner(primary), None, [])
+            except Exception:
+                pass
     if not primary:
         if st.session_state.get(_ERROR):
             st.error(st.session_state[_ERROR])
@@ -405,7 +418,7 @@ def render_mean_reversion_workspace():
         else:
             st.info("Stock analysis is unavailable until a ticker can be loaded. Enter a ticker above to retry.")
     model, rows, selected = None, [], None
-    if primary:
+    if primary and full_results:
         last = date.fromisoformat(primary["dates"][-1])
         maximum = date.max
         suggested = last + timedelta(days=365)
@@ -427,23 +440,32 @@ def render_mean_reversion_workspace():
         rows = channel_readout(model, selected) if model.get("has_mean") else []
 
     if primary:
-        render_stock_readout(
-            primary, _cached_company_name(primary["symbol"]), reading[0], reading[1],
-            channel=model,
-        )
+        if full_results:
+            render_stock_readout(
+                primary, _cached_company_name(primary["symbol"]), reading[0], reading[1],
+                channel=model,
+            )
+        else:
+            render_preview_readout(preview_payload(
+                primary, reading[0], _cached_company_name(primary["symbol"])))
         st.date_input(
             "Projection and readout date",
             min_value=date.fromisoformat(primary["dates"][-1]),
             max_value=date.max,
             key=_DATE_INPUT,
             help="Extend all three fixed, straight trend lines to your chosen date, including 100 years ahead.",
+            disabled=not full_results,
         )
 
     comparisons = st.session_state.get(_COMPARISONS, [])
-    render_channel_chart(
-        _make_figure(primary, comparisons, model, rows),
-        primary, model, rows, selected,
-    )
+    if full_results:
+        render_channel_chart(
+            _make_figure(primary, comparisons, model, rows),
+            primary, model, rows, selected,
+        )
+    elif primary:
+        render_preview_chart(preview_payload(primary, reading[0]), "mr_public_chart")
+        render_unlock_prompt("mean_reversion")
 
     controls = st.columns([1, 1, 1, 2])
     controls[0].button("Remove chart", on_click=_remove_chart, disabled=not primary,
@@ -460,7 +482,10 @@ def render_mean_reversion_workspace():
         st.button("Show SOXL example", on_click=_restore_default,
                   key="mr_restore_default", type="primary")
 
-    _render_winner_analysis(primary, reading)
+    if full_results:
+        _render_winner_analysis(primary, reading)
+    else:
+        render_redacted_sections(["Detailed scores and mean-reversion components"], "mr_scores")
 
     with st.container(border=True, key="mr_replace_primary_form"):
         a, b = st.columns([5, 1])
@@ -487,6 +512,7 @@ def render_mean_reversion_workspace():
         right.caption(
             f"{history['symbol']} · normalized to primary price at first common date · "
             f"true adjusted prices remain available on hover"
+            if full_results else f"{history['symbol']} · full comparison results are redacted"
         )
     if st.session_state.get(_ERROR) and primary:
         st.error(st.session_state[_ERROR])
@@ -494,7 +520,10 @@ def render_mean_reversion_workspace():
     if rows:
         _render_readouts(rows, selected)
 
-    render_illustrated_rankings()
+    if full_results:
+        render_illustrated_rankings()
+    else:
+        render_redacted_sections(["Full stock rankings"], "mr_rankings")
 
     if model:
         with st.expander("Mean-reversion method"):

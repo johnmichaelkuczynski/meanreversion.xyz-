@@ -10,9 +10,13 @@ USER = {"is_logged_in": True, "email_verified": True, "sub": "test-subject",
         "email": "member@example.test", "provider": "google"}
 SCRIPT = """
 import streamlit as st
-from site_gate import require_site_access
-if require_site_access():
+from site_gate import refresh_site_access, render_unlock_prompt
+full_results = refresh_site_access()
+st.write("PUBLIC_APP_EXECUTED")
+if full_results:
     st.write("PROTECTED_APP_EXECUTED")
+else:
+    render_unlock_prompt("test")
 """
 
 
@@ -26,7 +30,7 @@ def protected(app):
     return any(x.value == "PROTECTED_APP_EXECUTED" for x in app.markdown)
 
 
-def test_anonymous_gets_readme_and_no_stripe_calls(environment):
+def test_anonymous_gets_app_and_redaction_prompt_without_stripe_calls(environment):
     with patch.object(gate, "get_current_user", return_value={"is_logged_in": False}), \
          patch.object(gate, "paid_access_for_current_user") as paid, \
          patch.object(gate, "get_plan") as plan, \
@@ -34,7 +38,8 @@ def test_anonymous_gets_readme_and_no_stripe_calls(environment):
         app = AppTest.from_string(SCRIPT).run()
     assert not app.exception
     assert not protected(app)
-    assert any("mean reversion" in x.value.lower() for x in app.markdown)
+    assert any(x.value == "PUBLIC_APP_EXECUTED" for x in app.markdown)
+    assert any("redacted preview" in x.value.lower() for x in app.info)
     paid.assert_not_called()
     plan.assert_not_called()
     checkout.assert_not_called()
@@ -46,12 +51,11 @@ def test_admin_enters_without_paywall_or_any_billing_call(environment, email):
          patch.object(gate, "_handle_checkout_return") as returned, \
          patch.object(gate, "paid_access_for_current_user") as paid, \
          patch.object(gate, "get_plan") as plan, \
-         patch.object(gate, "create_checkout") as checkout, \
-         patch.object(gate, "render_welcome_readme") as welcome:
+         patch.object(gate, "create_checkout") as checkout:
         app = AppTest.from_string(SCRIPT).run()
     assert not app.exception and protected(app)
     assert app.session_state["_paid_access_verified"] is True
-    for call in (returned, paid, plan, checkout, welcome):
+    for call in (returned, paid, plan, checkout):
         call.assert_not_called()
 
 
@@ -96,19 +100,22 @@ def test_provider_failure_does_not_unlock_or_start_checkout(environment):
 def test_missing_admin_configuration_disables_checkout(environment, monkeypatch):
     monkeypatch.setenv("ADMIN_EMAILS", "")
     with patch.object(gate, "get_current_user", return_value=USER), \
-         patch.object(gate, "paid_access_for_current_user") as paid, \
+         patch.object(gate, "_handle_checkout_return"), \
+         patch.object(gate, "paid_access_for_current_user", return_value=False) as paid, \
          patch.object(gate, "create_checkout") as checkout:
         app = AppTest.from_string(SCRIPT).run()
     assert not app.exception and not protected(app)
-    assert app.error
-    paid.assert_not_called()
+    assert app.warning
+    assert any(x.value == "PUBLIC_APP_EXECUTED" for x in app.markdown)
+    paid.assert_called_once()
     checkout.assert_not_called()
 
 
-def test_gate_precedes_workspace_import_and_every_page_execution():
+def test_entitlements_refresh_without_blocking_app_entry():
     source = Path("main.py").read_text()
-    assert source.index("if not require_site_access():") < source.index("from mean_reversion_workspace import")
-    assert source.index("if not require_site_access():") < source.index("page.run()")
+    assert "if not require_site_access():" not in source
+    assert "st.stop()" not in source
+    assert source.index("refresh_site_access()") < source.index("page.run()")
 
 
 def test_subject_bound_payment_cannot_leak_to_another_account(environment):
