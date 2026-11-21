@@ -1,6 +1,6 @@
 ---
-name: Page-one ticker access and permanent owner exemption
-description: Free tickers, one clean purchase panel, no partial redaction, and permanent owner/development access.
+name: Investor access and permanent owner exemption
+description: Page-one free tickers, paid SOXL page, clean purchase panels, and permanent owner/development access.
 ---
 
 Page 1 freely provides complete SOXL, QQQ and AAPL analyses, including comparisons,
@@ -18,6 +18,18 @@ panel when denied—never blurred charts, placeholders or scattered payment
 notices. Preserve calculations, charts, layout, styling, Google OAuth settings,
 Stripe objects, credentials, environment names and `/api/stripe/webhook`.
 Do not infer authorization to change other pages from an unapproved draft.
+
+Page 2 (`/soxl`) requires verified Google sign-in and paid access, with the
+same owner/development exemption. Denied visitors see only “The SOXL page
+requires full access — $1,500” and one “Get full access” button, before any
+page content or market-data work.
+
+**Why:** The user subsequently authorized the separate page-two restriction.
+The free SOXL ticker on page one does not make page two free.
+
+**How to apply:** Reuse the full-access entitlement and existing Google-to-Stripe
+purchase continuation; never add partial-result redaction or alter page content
+for allowed users.
 
 Development remains automatically signed in and unrestricted. The owner must
 always retain complete access in development and deployment, regardless of

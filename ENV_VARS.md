@@ -114,8 +114,11 @@ including comparisons. Other tickers require verified paid access and otherwise
 show one clean $1,500 purchase panel instead of running or displaying analysis.
 Its button continues through native Google sign-in to Stripe Checkout for the
 existing `STRIPE_PRICE_ID`. Allowed results are never redacted or blurred.
-Page 2 retains its existing access behavior. Google OAuth settings, Stripe
-objects, routes and environment variable names remain unchanged.
+Page 2 (`/soxl`) requires verified Google sign-in and paid access, except for
+owners and development sessions. Other visitors see only “The SOXL page requires
+full access — $1,500” and the same “Get full access” button, with no page content
+rendered. Google OAuth settings, Stripe objects, routes and environment variable
+names remain unchanged.
 
 Set `ADMIN_EMAILS` to the comma-separated administrator email allowlist in the
 actual server's environment. Matching ignores case and surrounding whitespace.

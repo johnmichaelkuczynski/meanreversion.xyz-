@@ -1,4 +1,4 @@
-"""Two separate public workspaces; Mean Reversion is the default page."""
+"""Two separate workspaces; Mean Reversion is the default page."""
 import streamlit as st
 
 from clean_presentation import apply_clean_presentation

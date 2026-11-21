@@ -3,6 +3,13 @@ import hashlib
 from pathlib import Path
 
 import streamlit as st
+
+from ticker_access import has_full_access, render_soxl_unlock
+
+if not has_full_access():
+    render_soxl_unlock()
+    st.stop()
+
 import streamlit.components.v1 as components
 import pandas as pd
 import numpy as np

@@ -38,7 +38,7 @@ def test_legacy_gate_never_renders_a_wall_or_checkout():
     purchase.assert_not_called()
 
 
-def test_pages_have_no_entry_gates_redaction_or_payment_prompts():
+def test_pages_have_no_partial_redaction_or_legacy_payment_prompts():
     main = Path("main.py").read_text()
     assert "render_google_login()" in main
     assert "st.stop()" not in main

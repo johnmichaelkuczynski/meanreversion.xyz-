@@ -1,4 +1,4 @@
-"""Page-one ticker policy and one-click native Google-to-Stripe continuation."""
+"""Ticker/page access and one-click native Google-to-Stripe continuation."""
 import json
 import logging
 from urllib.parse import urlencode
@@ -16,7 +16,12 @@ logger = logging.getLogger(__name__)
 
 
 def can_analyze_ticker(symbol):
-    if symbol in FREE_TICKERS or is_development_preview():
+    return symbol in FREE_TICKERS or has_full_access()
+
+
+def has_full_access():
+    """Full-page access never inherits page one's free-ticker exemption."""
+    if is_development_preview():
         return True
     user = get_current_user()
     if is_owner(user):
@@ -39,8 +44,16 @@ def navigate(destination):
 
 
 def render_ticker_unlock(symbol, error=None):
+    _render_unlock(f"Analyzing {symbol} requires full access — $1,500", symbol, error)
+
+
+def render_soxl_unlock():
+    _render_unlock("The SOXL page requires full access — $1,500", "SOXL")
+
+
+def _render_unlock(message, symbol, error=None):
     with st.container(border=True, key="mr_ticker_unlock"):
-        st.write(f"Analyzing {symbol} requires full access — $1,500")
+        st.write(message)
         if error:
             st.write(error)
         if st.button("Get full access", key="mr_get_full_access", type="primary"):
