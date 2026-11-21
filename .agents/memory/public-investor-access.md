@@ -23,6 +23,15 @@ the owner's exemption inside the preserved optional Stripe code. Never hardcode
 an email in application code. All visitors already have full application access
 regardless of that setting.
 
+The owner must always retain complete access in development and deployment,
+regardless of any present or future pricing or payment status.
+
+**Why:** The user explicitly made permanent owner access a standing requirement.
+
+**How to apply:** Never make the owner's access contingent on purchasing,
+including if the user later requests restrictions for other visitors. Identify
+the owner through the configured verified-email allowlist, not a hardcoded email.
+
 **Why:** The user explicitly kept Google and Stripe while removing all access
 restrictions; the owner's existing financial exemption must not be removed.
 
