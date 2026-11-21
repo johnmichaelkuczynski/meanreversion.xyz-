@@ -40,12 +40,16 @@ CREATE INDEX IF NOT EXISTS purchase_checkouts_user_price_idx
     ON purchase_checkouts (user_identity_hash, price_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS purchase_checkouts_session_idx
     ON purchase_checkouts (stripe_session_id);
+ALTER TABLE purchase_checkouts ADD COLUMN IF NOT EXISTS google_email TEXT;
+ALTER TABLE purchase_checkouts ADD COLUMN IF NOT EXISTS verified_paid_at TIMESTAMPTZ;
+CREATE INDEX IF NOT EXISTS purchase_checkouts_paid_email_idx
+    ON purchase_checkouts (google_email, price_id) WHERE status = 'paid';
 """
 
 _COLUMNS = (
     "id, attempt_id, user_identity_hash, price_id, expected_amount, "
     "expected_currency, stripe_session_id, checkout_url, status, "
-    "created_at, updated_at, paid_at"
+    "created_at, updated_at, paid_at, google_email, verified_paid_at"
 )
 _initialized = False
 _init_lock = Lock()
@@ -96,6 +100,7 @@ def reserve_checkout(
     price_id: str,
     expected_amount: int,
     expected_currency: str,
+    google_email: str | None = None,
 ) -> dict:
     """Return an existing usable attempt or atomically create a new one.
 
@@ -123,12 +128,19 @@ def reserve_checkout(
             )
             row = _record(cur.fetchone())
             if row is not None:
+                if google_email and not row.get("google_email"):
+                    cur.execute(
+                        "UPDATE purchase_checkouts SET google_email=%s "
+                        "WHERE attempt_id=%s AND user_identity_hash=%s",
+                        (google_email.strip().lower(), row["attempt_id"], user_identity_hash),
+                    )
+                    row["google_email"] = google_email.strip().lower()
                 return row
             attempt_id = "soxlpro-" + uuid.uuid4().hex
             cur.execute(
                 "INSERT INTO purchase_checkouts "
                 "(attempt_id, user_identity_hash, price_id, expected_amount, "
-                "expected_currency, status) VALUES (%s, %s, %s, %s, %s, "
+                "expected_currency, google_email, status) VALUES (%s, %s, %s, %s, %s, %s, "
                 "'pending') RETURNING " + _COLUMNS,
                 (
                     attempt_id,
@@ -136,6 +148,7 @@ def reserve_checkout(
                     price_id,
                     int(expected_amount),
                     str(expected_currency).lower(),
+                    google_email.strip().lower() if google_email else None,
                 ),
             )
             created = _record(cur.fetchone())
@@ -231,7 +244,7 @@ def list_checkouts(user_identity_hash: str, price_id: str) -> list[dict]:
         conn.close()
 
 
-def mark_paid(user_identity_hash: str, session_id: str) -> dict:
+def mark_paid(user_identity_hash: str, session_id: str, google_email: str | None = None) -> dict:
     """Durably record a verified payment for this identity and session."""
     initialize_store()
     conn = db.get_conn()
@@ -239,10 +252,12 @@ def mark_paid(user_identity_hash: str, session_id: str) -> dict:
         with conn, _cursor(conn) as cur:
             cur.execute(
                 "UPDATE purchase_checkouts SET status = 'paid', "
-                "paid_at = COALESCE(paid_at, now()), updated_at = now() "
+                "paid_at = COALESCE(paid_at, now()), updated_at = now(), "
+                "verified_paid_at = now(), "
+                "google_email = COALESCE(google_email, %s) "
                 "WHERE user_identity_hash = %s AND stripe_session_id = %s "
                 "AND status NOT IN ('cancelled', 'failed')",
-                (user_identity_hash, session_id),
+                (google_email.strip().lower() if google_email else None, user_identity_hash, session_id),
             )
             cur.execute(
                 f"SELECT {_COLUMNS} FROM purchase_checkouts "
@@ -259,6 +274,26 @@ def mark_paid(user_identity_hash: str, session_id: str) -> dict:
         raise PurchaseStoreError(
             "The purchase database is temporarily unavailable."
         ) from exc
+    finally:
+        conn.close()
+
+
+def email_has_paid_access(google_email: str, price_id: str, *, fresh_only=False) -> bool:
+    """Read a verified purchase, never a checkout intent or a billing email."""
+    initialize_store()
+    conn = db.get_conn()
+    try:
+        with conn, conn.cursor() as cur:
+            cur.execute(
+                "SELECT EXISTS (SELECT 1 FROM purchase_checkouts "
+                "WHERE google_email=%s AND price_id=%s AND status='paid' "
+                "AND verified_paid_at IS NOT NULL "
+                "AND (NOT %s OR verified_paid_at > now()-interval '60 seconds'))",
+                (google_email.strip().lower(), price_id, fresh_only),
+            )
+            return bool(cur.fetchone()[0])
+    except Exception as exc:
+        raise PurchaseStoreError("The purchase database is temporarily unavailable.") from exc
     finally:
         conn.close()
 

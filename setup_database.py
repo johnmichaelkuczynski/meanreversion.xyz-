@@ -6,6 +6,7 @@ import db
 from benchmark_quotes import SCHEMA as BENCHMARK_SCHEMA
 from market_state_store import _SCHEMA as MARKET_SCHEMA
 from stripe_webhook import SCHEMA as BILLING_SCHEMA
+from purchase_store import _SCHEMA as PURCHASE_SCHEMA
 
 VISITOR_SCHEMA = """
 CREATE TABLE IF NOT EXISTS site_visitors (
@@ -41,7 +42,7 @@ def initialize():
             cursor.execute("SET LOCAL statement_timeout = '15s'")
             cursor.execute("SET LOCAL lock_timeout = '5s'")
             for schema in (db._SCHEMA, MARKET_SCHEMA, WORKER_SCHEMA,
-                           BENCHMARK_SCHEMA, BILLING_SCHEMA, VISITOR_SCHEMA):
+                           BENCHMARK_SCHEMA, BILLING_SCHEMA, PURCHASE_SCHEMA, VISITOR_SCHEMA):
                 cursor.execute(schema)
     finally:
         connection.close()

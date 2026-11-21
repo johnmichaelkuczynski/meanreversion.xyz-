@@ -128,7 +128,7 @@ def process_event(cur, event, client):
         return
     if kind == "checkout.session.completed":
         session = plain(client.v1.checkout.sessions.retrieve(
-            obj["id"], {"expand": ["line_items", "subscription"]}
+            obj["id"], {"expand": ["line_items", "subscription", "payment_intent.latest_charge"]}
         ))
         meta = session.get("metadata") or {}
         identity = meta.get("user_identity")
@@ -148,14 +148,8 @@ def process_event(cur, event, client):
         if session.get("status") != "complete":
             raise ValueError("Checkout incomplete")
         if session.get("mode") == "payment":
-            # Preserve the existing, stricter one-time purchase verifier.
-            if session.get("payment_status") != "paid":
-                raise ValueError("Checkout unpaid")
-            cur.execute(
-                "UPDATE purchase_checkouts SET status='paid', paid_at=now(),updated_at=now() "
-                "WHERE stripe_session_id=%s AND user_identity_hash=%s",
-                (session["id"], identity),
-            )
+            from webhook_purchase import record_paid_checkout
+            record_paid_checkout(cur, session, identity, client)
         elif session.get("mode") != "subscription":
             return
         if not customer:
@@ -267,8 +261,19 @@ def main():
         http_client=stripe.RequestsClient(timeout=10),
     )
     print("Stripe webhook event worker started", flush=True)
+    initialized = False
     while True:
         try:
+            if not initialized:
+                from purchase_store import initialize_store
+                initialize_store()
+                conn = db.get_conn()
+                try:
+                    with conn, conn.cursor() as cur:
+                        cur.execute(SCHEMA)
+                finally:
+                    conn.close()
+                initialized = True
             if process_one(client):
                 continue
         except Exception as exc:

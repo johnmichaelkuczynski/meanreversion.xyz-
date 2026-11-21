@@ -58,6 +58,8 @@ def billing_env(monkeypatch):
     monkeypatch.setenv("STRIPE_PRICE_ID", PRICE["id"])
     monkeypatch.setenv("PUBLIC_APP_URL", "https://soxlpro.example")
     monkeypatch.setattr("auth.is_development_preview", lambda: False)
+    monkeypatch.setattr(billing.purchase_store, "email_has_paid_access", lambda *_, **kw: False)
+    monkeypatch.setattr("stripe_webhook.subscription_access", lambda *_: False)
 
 
 def test_get_plan_accepts_active_one_time_price(monkeypatch):

@@ -592,7 +592,7 @@ def verify_checkout(user, session_id) -> bool:
         _mark_status(identity, session_id, "revoked" if reversed_payment else "review")
         return False
 
-    _store_call(lambda: purchase_store.mark_paid(identity, session_id))
+    _store_call(lambda: purchase_store.mark_paid(identity, session_id, user["email"]))
     return True
 
 
@@ -642,7 +642,7 @@ def create_checkout(user) -> dict:
     for _attempt_number in range(3):
         attempt = _store_call(
             lambda: purchase_store.reserve_checkout(
-                identity, plan["price_id"], plan["amount"], plan["currency"]
+                identity, plan["price_id"], plan["amount"], plan["currency"], user["email"]
             )
         )
         existing_id = attempt.get("stripe_session_id")
@@ -712,26 +712,40 @@ def get_paid_access(user) -> bool:
     if is_owner(user):
         return True
     identity = user_identity(user)
-    from stripe_webhook import subscription_access
-    if subscription_access(identity):
+    price_id = configured_price_id()
+    def recorded_paid(*, fresh_only=False):
+        return _store_call(lambda: purchase_store.email_has_paid_access(
+            user["email"], price_id, fresh_only=fresh_only,
+        ))
+    if recorded_paid(fresh_only=True):
         return True
-    plan = get_plan()
-    if not plan.get("livemode"):
-        return False
-    records = _store_call(
-        lambda: purchase_store.list_checkouts(identity, plan["price_id"])
-    )
-    for record in records:
-        if (
-            record.get("user_identity_hash") != identity
-            or record.get("price_id") != plan["price_id"]
-            or record.get("status") in {"cancelled", "failed", "revoked", "expired"}
-            or not record.get("stripe_session_id")
-        ):
-            continue
-        if verify_checkout(user, record["stripe_session_id"]):
+    try:
+        from stripe_webhook import subscription_access
+        if subscription_access(identity):
             return True
-    return False
+        plan = get_plan()
+        if not plan.get("livemode"):
+            return False
+        records = _store_call(
+            lambda: purchase_store.list_checkouts(identity, plan["price_id"])
+        )
+        for record in records:
+            if (
+                record.get("user_identity_hash") != identity
+                or record.get("price_id") != plan["price_id"]
+                or record.get("status") in {"cancelled", "failed", "revoked", "expired"}
+                or not record.get("stripe_session_id")
+            ):
+                continue
+            if verify_checkout(user, record["stripe_session_id"]):
+                return True
+    except BillingError:
+        # Preserve a verified purchase during a provider outage, but never
+        # override an explicit refund/revocation recorded by verification.
+        if recorded_paid():
+            return True
+        raise
+    return recorded_paid()
 
 
 if __name__ == "__main__":

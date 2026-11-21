@@ -42,3 +42,17 @@ allowlist against the verified Google identity before any payment operation.
 Never hardcode an email, send the owner to checkout, or make owner access depend
 on provider availability. Keep the existing durable payment verification for
 non-owner buyers; an intent cookie or return-URL parameter is not payment proof.
+
+Paid access belongs to the verified Google email captured by the server before
+checkout, normalized for case and surrounding whitespace—not Stripe's editable
+billing email. Preserve the identity binding as well.
+
+**Why:** The user explicitly requested email-based, database-persisted access
+from completed-payment webhooks. A payer may supply a different billing email.
+
+**How to apply:** Require the configured price, live successful payment and
+existing strict amount/charge checks before trusting a receipt. Legacy “paid”
+rows did not necessarily complete those checks, so distinguish verified grants.
+Keep refund revalidation, retain a verified grant during provider outages, and
+do not cache negative access across asynchronous webhook completion. Paid
+visitors should see their full results without access-status banners.

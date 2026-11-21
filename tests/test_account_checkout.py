@@ -20,6 +20,7 @@ def dependencies(monkeypatch):
     monkeypatch.setenv("ADMIN_EMAILS", "admin@example.test")
     with patch.object(header, "get_current_user", return_value=USER), \
          patch.object(header, "is_development_preview", return_value=False), \
+         patch.object(header, "paid_access_for_current_user", return_value=False), \
          patch.object(header, "verify_checkout") as verify, \
          patch.object(header, "track_event") as track:
         verify.return_value = False
@@ -46,7 +47,7 @@ def test_verified_return_clears_query_and_forces_entitlement_refresh(dependencie
     app.query_params["checkout"] = "success"
     app.query_params["session_id"] = "cs_verified"
     app.run()
-    assert not app.exception and app.success
+    assert not app.exception and not app.success
     assert "checkout" not in app.query_params
     assert "session_id" not in app.query_params
     assert "_billing_access" not in app.session_state

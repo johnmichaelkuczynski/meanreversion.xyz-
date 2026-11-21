@@ -36,7 +36,8 @@ def paid_access_for_current_user(force=False):
         return False
     identity = user_identity(user)
     cached = st.session_state.get("_billing_access")
-    if not force and cached and cached["identity"] == identity:
+    # A cached denial must not hide a newly committed webhook payment.
+    if not force and cached and cached["identity"] == identity and cached["paid"]:
         if time.monotonic() - cached["checked_at"] < 60:
             return cached["paid"]
     paid = get_paid_access(user)
@@ -109,6 +110,11 @@ def _handle_checkout_return():
         return
     session_id = st.query_params.get("session_id", "")
     try:
+        if paid_access_for_current_user(force=True):
+            del st.query_params["checkout"]
+            if "session_id" in st.query_params:
+                del st.query_params["session_id"]
+            return
         if not session_id.startswith("cs_") or len(session_id) > 255:
             st.info("This payment confirmation link is incomplete. Your account can still recover a completed purchase.")
             return
@@ -118,7 +124,6 @@ def _handle_checkout_return():
         if confirmed:
             track_event("payment_confirmed", {"plan": "full_access"},
                         once_key=session_id)
-            st.success("Payment confirmed. Your full access is active.")
             del st.query_params["checkout"]
             del st.query_params["session_id"]
         else:

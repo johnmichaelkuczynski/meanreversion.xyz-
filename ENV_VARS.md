@@ -120,6 +120,13 @@ full access — $1,500” and the same “Get full access” button, with no pag
 rendered. Google OAuth settings, Stripe objects, routes and environment variable
 names remain unchanged.
 
+Completed-payment webhooks bind the purchase to the verified Google email saved
+before checkout, not an email typed into Stripe's billing form. The existing
+PostgreSQL receipt stores the normalized email and verified paid state for the
+configured price. Newly confirmed payments are recognized without a cached
+unpaid result or an access-status banner. Older purchases retain payment and
+refund revalidation; a provider outage does not erase a verified database grant.
+
 Set `ADMIN_EMAILS` to the comma-separated administrator email allowlist in the
 actual server's environment. Matching ignores case and surrounding whitespace.
 Only authenticated, verified Google identities qualify for the owner exemption
