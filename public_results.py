@@ -1,64 +1,47 @@
-"""Server-side result redaction shared by public stock and SOXL previews."""
-import math
-
-import plotly.graph_objects as go
-import streamlit as st
-
-from preview_ui import render_preview_readout, render_redacted_sections
+"""Redact paid outputs without replacing the existing analysis interface."""
+from mean_reversion_channels import CHANNELS
 
 
-def preview_payload(history, analysis=None, company=""):
-    """Whitelist only free fields. Never forward a full model to the browser."""
-    pairs = [
-        (str(day), float(value))
-        for day, value in zip(history.get("dates", []), history.get("prices", []))
-        if value is not None and math.isfinite(float(value)) and float(value) > 0
-    ][-90:]
-    analysis = analysis or {}
-    has_mean = bool(analysis.get("has_mean"))
-    return {
-        "symbol": str(history.get("symbol", "")),
-        "company": str(company or "Company name unavailable"),
-        "last_price": pairs[-1][1] if pairs else None,
-        "through": pairs[-1][0] if pairs else "",
-        "verdict": str(analysis.get("verdict", "Analysis unavailable")),
-        "pull_strength": str(analysis.get("pull_strength", "Unavailable")) if has_mean else "Insufficient history",
-        "trend": ("UP" if analysis.get("slope_pct", 0) > 0 else "NOT UP") if has_mean else "Insufficient history",
-        "dates": [p[0] for p in pairs],
-        "prices": [p[1] for p in pairs],
+def redacted_channel_rows(selected):
+    """Preserve the existing three-color panel, never its paid target values."""
+    day = selected.isoformat() if hasattr(selected, "isoformat") else str(selected)
+    return [
+        {"kind": kind, "label": label, "date": day,
+         "target_price": "REDACTED", "hit_probability": None,
+         "probability_text": "REDACTED"}
+        for kind, label, _color in CHANNELS
+    ]
+
+
+def historical_channel(model):
+    """Only historical channel geometry is public; no forecast samples."""
+    keep = [
+        i for i, day in enumerate(model["line_dates"])
+        if day <= model["last_date"]
+    ]
+    result = {
+        "last_date": model["last_date"],
+        "line_dates": [model["line_dates"][i] for i in keep],
+        "lines": {kind: [values[i] for i in keep]
+                  for kind, values in model["lines"].items()},
     }
-
-
-def preview_figure(preview):
-    """A recent-price-only chart: no model, predictions, hidden traces or scores."""
-    figure = go.Figure(go.Scatter(
-        x=preview["dates"], y=preview["prices"], mode="lines",
-        name=f"{preview['symbol']} · recent price",
-        line={"color": "#283d3a", "width": 2.5},
-        hovertemplate="%{x}<br>Price: $%{y:,.2f}<extra></extra>",
-    ))
-    figure.update_layout(
-        height=350, margin={"l": 35, "r": 20, "t": 25, "b": 35},
-        xaxis_title="Date", yaxis_title="Price (USD)", dragmode="pan",
-        showlegend=False,
-    )
-    return figure
-
-
-def render_preview_chart(preview, key):
-    st.plotly_chart(preview_figure(preview), width="stretch", key=key,
-                    config={"displaylogo": False})
-    st.caption(
-        "Limited preview: latest 90 available closing prices only. Full history, "
-        "trend lines, projections, and price probabilities are redacted."
-    )
-    render_redacted_sections(["Full trend graph and price probabilities"], key + "_graph")
+    zone = model.get("lower_buy_zone", [])
+    if zone:
+        result["lower_buy_zone"] = [zone[i] for i in keep]
+    return result
 
 
 def render_soxl_preview(data):
-    """Render the existing SOXL workspace's public subset, not its paid modules."""
+    """Use the original readout and channel panel, not a replacement sparkline."""
+    from datetime import date
+    import streamlit as st
     from mean_reversion_winner import analyze_winner
+    from mean_reversion_workspace import _cached_channel, _make_figure
+    from mean_reversion_chart import render_channel_chart
+    from mean_reversion_readout import render_stock_readout
+    from preview_ui import render_redacted_sections
     from site_gate import render_unlock_prompt
+
     history = {
         "symbol": "SOXL",
         "dates": [str(day.date()) for day in data.index],
@@ -68,8 +51,12 @@ def render_soxl_preview(data):
         analysis = analyze_winner(history)
     except Exception:
         analysis = None
-    preview = preview_payload(history, analysis, "SOXL · semiconductor leveraged ETF")
-    render_preview_readout(preview)
+    last = date.fromisoformat(history["dates"][-1])
+    model = _cached_channel(history, last.isoformat())
+    render_stock_readout(
+        history, "DIREXION DAILY SEMICONDUCTOR BULL 3X SHARES",
+        analysis, None, channel=model, redacted=True,
+    )
     labels = [
         "Chart & Probabilities", "Vol Surface", "Call Risk/Reward",
         "SOXL-QQQ Dislocation", "Strategy Builder", "Backtest",
@@ -77,7 +64,11 @@ def render_soxl_preview(data):
     ]
     tabs = st.tabs(labels)
     with tabs[0]:
-        render_preview_chart(preview, "soxl_public_chart")
+        rows = redacted_channel_rows(last)
+        render_channel_chart(
+            _make_figure(history, [], model, rows, redacted=True),
+            history, model, rows, last, redacted=True,
+        )
     for tab, label in zip(tabs[1:], labels[1:]):
         with tab:
             render_redacted_sections([label], "soxl_" + label)

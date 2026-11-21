@@ -16,6 +16,17 @@ app. Withhold paid values on the server; do not send full results to the browser
 and merely blur them. Keep automatic development access unrestricted and
 separate; it must never initiate live checkout.
 
+Apply redaction within the original readout and chart, never by substituting
+a simplified page, different readout, short-history sparkline, or linear axis.
+Keep the original historical chart, log scale, three straight trend lines and
+movable/resizable tricolor panel. Redact paid numbers and future forecasts.
+
+**Why:** The user explicitly rejected the replacement public preview as a
+destroyed interface and reiterated that Google login must not redesign the app.
+
+**How to apply:** Use the same rendering components for public and paid views.
+Change only entitlement-dependent values and future data, not the layout.
+
 Verified Google users on the comma-separated, case-insensitive `ADMIN_EMAILS`
 environment allowlist are paid administrators everywhere. Do not hardcode any
 administrator email in application code.

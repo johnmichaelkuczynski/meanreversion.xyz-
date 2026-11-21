@@ -18,7 +18,7 @@ _channel_panel = components.declare_component(
 )
 
 
-def render_channel_chart(figure, primary, model, rows, selected_date):
+def render_channel_chart(figure, primary, model, rows, selected_date, redacted=False):
     """Pass the existing figure and calculated estimates; never recalculate odds."""
     return _channel_panel(
         figure=json.loads(figure.to_json()),
@@ -28,6 +28,8 @@ def render_channel_chart(figure, primary, model, rows, selected_date):
         rows=rows,
         config={"displaylogo": False, "scrollZoom": True, "responsive": True},
         readout_height=640,
-        key=f"mean_reversion_workspace_chart_{_revision}",
+        # Recreate the frame on an entitlement change: a pinned full-results
+        # panel must not survive into a redacted session with the same ticker.
+        key=f"mean_reversion_workspace_chart_{_revision}" + ("_redacted" if redacted else ""),
         default=None,
     )
