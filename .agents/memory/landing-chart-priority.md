@@ -42,6 +42,15 @@ name displacing them.
 **How to apply:** Both ticker forms must replace the same primary stock and
 update the heading and facts together. Label the actual price-observation date.
 
+Put the current stock price directly underneath the ticker in large, but not huge,
+text.
+
+**Why:** The user said the current price was very hard to find and explicitly
+required this placement.
+
+**How to apply:** Preserve this prominent price line when changing the headline
+facts; keep its observation time visible.
+
 Use three fixed, straight lines on the Mean Reversion log-price chart, like
 the SOXL channel, not bent rolling bands. Let the user extend them at least
 30 years and 100 years ahead. The displayed slope and above/below-mean distance

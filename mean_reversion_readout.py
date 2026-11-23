@@ -2,6 +2,7 @@
 from bisect import bisect_right
 from datetime import date
 from html import escape
+from math import isfinite
 
 import numpy as np
 import streamlit as st
@@ -10,6 +11,34 @@ from mean_reversion_winner import CONFIG
 from mean_reversion_channels import YEAR_DAYS
 
 POSITION_DATE = "mr_workspace_position_date"
+
+
+@st.cache_data(ttl=20, show_spinner=False)
+def _current_quote(symbol):
+    from tiingo_market_data import TiingoError, fetch_quote
+    try:
+        return fetch_quote(symbol)
+    except TiingoError:
+        return None
+
+
+def headline_price(history, quote):
+    """Keep an unavailable live quote distinct from an available daily close."""
+    if quote:
+        price = quote.get("price")
+        if isinstance(price, (int, float)) and isfinite(price) and price > 0:
+            return (
+                f"Current price: ${price:,.2f}",
+                " · ".join(str(p) for p in (
+                    quote.get("source"), quote.get("observed_label") or quote.get("observed_at")
+                ) if p),
+            )
+    prices, dates = history.get("prices", []), history.get("dates", [])
+    if len(prices) and len(dates):
+        price = float(prices[-1])
+        if isfinite(price) and price > 0:
+            return f"Latest close: ${price:,.2f}", f"As of {dates[-1]} · Not a live quote"
+    return "Current price: unavailable", ""
 
 
 def dated_position(history, analysis, selected):
@@ -70,6 +99,9 @@ def render_stock_readout(history, company_name, analysis, scores, channel=None):
     """Render the primary decision facts before any supporting controls."""
     symbol = escape(str(history.get("symbol", "Ticker unavailable")))
     company = escape(str(company_name or "Company name unavailable"))
+    price, price_time = headline_price(
+        history, _current_quote(str(history["symbol"])) if history.get("symbol") else None
+    )
     position = None
     has_chart_mean = channel is not None and channel.get("has_mean")
     has_scoring_mean = analysis is not None and analysis.get("has_mean")
@@ -143,9 +175,24 @@ def render_stock_readout(history, company_name, analysis, scores, channel=None):
             margin-top: 0.12rem;
             overflow-wrap: anywhere;
         }}
+        .mr-priority-readout .mr-current-price {{
+            color: #111;
+            font-size: clamp(1.6rem, 3.4vw, 2.25rem);
+            font-weight: 800;
+            line-height: 1.2;
+            margin-top: 0.35rem;
+            font-variant-numeric: tabular-nums;
+        }}
+        .mr-priority-readout .mr-price-time {{
+            color: #475569;
+            font-size: 0.85rem;
+            margin: 0.15rem 0 0.3rem;
+        }}
         </style>
         <section class="mr-priority-readout" aria-label="Selected stock analysis">
           <div class="mr-ticker">TICKER: {symbol}</div>
+          <div class="mr-current-price">{escape(price)}</div>
+          <div class="mr-price-time">{escape(price_time)}</div>
           <div class="mr-company">Company: {company}</div>
           <div class="mr-fact">Verdict: {escape(verdict)}</div>
           <div class="mr-fact">Pull: {escape(reversion)}</div>
