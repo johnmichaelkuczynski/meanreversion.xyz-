@@ -51,6 +51,14 @@ required this placement.
 **How to apply:** Preserve this prominent price line when changing the headline
 facts; keep its observation time visible.
 
+Make the stock's daily gain or loss prominent at or near the top of the Mean
+Reversion readout, including the last trading day's change when markets are closed.
+
+**Why:** The user said even a roughly 30% SOXL daily move was nowhere to be found.
+
+**How to apply:** Keep the dated daily change beside the headline price, rather
+than burying it in a chart hover or supporting details.
+
 Use three fixed, straight lines on the Mean Reversion log-price chart, like
 the SOXL channel, not bent rolling bands. Let the user extend them at least
 30 years and 100 years ahead. The displayed slope and above/below-mean distance

@@ -1,8 +1,9 @@
 """One-fact-per-line readout for the recency-weighted straight-mean model."""
 from bisect import bisect_right
-from datetime import date
+from datetime import date, datetime
 from html import escape
 from math import isfinite
+from zoneinfo import ZoneInfo
 
 import numpy as np
 import streamlit as st
@@ -39,6 +40,44 @@ def headline_price(history, quote):
         if isfinite(price) and price > 0:
             return f"Latest close: ${price:,.2f}", f"As of {dates[-1]} · Not a live quote"
     return "Current price: unavailable", ""
+
+
+def headline_day_change(history, quote):
+    """Quote-to-previous-close, or daily close-to-close; never mix price bases."""
+    def positive(value):
+        try:
+            number = float(value) if not isinstance(value, bool) else 0
+            return number if isfinite(number) and number > 0 else None
+        except (TypeError, ValueError, OverflowError):
+            return None
+
+    current = positive((quote or {}).get("price"))
+    if current is not None:
+        # Use the quote provider's previous close, not adjusted historical bars.
+        previous = positive(quote.get("prev_close"))
+        try:
+            observed = datetime.fromisoformat(quote["observed_at"].replace("Z", "+00:00"))
+            if observed.tzinfo is None:
+                raise ValueError("Observation requires a timezone")
+            day = observed.astimezone(ZoneInfo("America/New_York")).date().isoformat()
+        except (KeyError, TypeError, ValueError, AttributeError):
+            return "Day change: unavailable", "Quote date unavailable"
+        if previous is None:
+            return "Day change: unavailable", f"{day} · Previous close unavailable"
+        context = f"{day} · vs previous trading day's close"
+    else:
+        prices, dates = history.get("prices", []), history.get("dates", [])
+        if len(prices) < 2 or len(dates) < 2:
+            return "Day change: unavailable", "Two trading-day closes required"
+        current, previous = positive(prices[-1]), positive(prices[-2])
+        if current is None or previous is None:
+            return "Day change: unavailable", "Valid trading-day closes unavailable"
+        context = f"{dates[-1]} · close-to-close"
+
+    change = current - previous
+    percent = 100 * change / previous
+    sign = "+" if change >= 0 else "−"
+    return f"Day change: {percent:+.2f}% ({sign}${abs(change):,.2f})", context
 
 
 def dated_position(history, analysis, selected):
@@ -99,9 +138,9 @@ def render_stock_readout(history, company_name, analysis, scores, channel=None):
     """Render the primary decision facts before any supporting controls."""
     symbol = escape(str(history.get("symbol", "Ticker unavailable")))
     company = escape(str(company_name or "Company name unavailable"))
-    price, price_time = headline_price(
-        history, _current_quote(str(history["symbol"])) if history.get("symbol") else None
-    )
+    quote = _current_quote(str(history["symbol"])) if history.get("symbol") else None
+    price, price_time = headline_price(history, quote)
+    day_change, day_context = headline_day_change(history, quote)
     position = None
     has_chart_mean = channel is not None and channel.get("has_mean")
     has_scoring_mean = analysis is not None and analysis.get("has_mean")
@@ -193,6 +232,8 @@ def render_stock_readout(history, company_name, analysis, scores, channel=None):
           <div class="mr-ticker">TICKER: {symbol}</div>
           <div class="mr-current-price">{escape(price)}</div>
           <div class="mr-price-time">{escape(price_time)}</div>
+          <div class="mr-fact mr-day-change">{escape(day_change)}</div>
+          <div class="mr-price-time">{escape(day_context)}</div>
           <div class="mr-company">Company: {company}</div>
           <div class="mr-fact">Verdict: {escape(verdict)}</div>
           <div class="mr-fact">Pull: {escape(reversion)}</div>
