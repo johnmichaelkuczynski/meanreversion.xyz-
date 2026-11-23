@@ -65,3 +65,17 @@ Keep phonetic spelling in the TTS script only—never print a pronunciation guid
 unless the user requests a different style or platform format. Spell the ticker
 phonetically in every text-to-speech script, while displaying only the public URL
 SOXLPRO.XYZ in the finished visual.
+
+## Managed speech fallback
+
+If both the managed voice catalog and direct ElevenLabs access return 403, do not
+keep retrying that service. An already configured OpenAI speech client can be used
+for narration without changing any app credentials or exposing their values.
+
+**Why:** The managed ElevenLabs paths were forbidden while the existing OpenAI
+speech service successfully generated the requested narration.
+
+**How to apply:** Request the preferred voice style explicitly in the speech
+instructions, then verify the generated text with transcription and check the
+audio and final video durations. Marketing narration should describe the research
+features without inventing returns or implying guaranteed stock performance.

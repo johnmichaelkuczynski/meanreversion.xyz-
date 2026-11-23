@@ -852,3 +852,31 @@ mtime_ms = 1795195626541
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:b0d92c61-69e9-4427-b00c-62f99328260c/34428f7f-de79-4939-980f-7d2ad72f525e/6b906796-1f01-4c38-8ed0-fa1f757fa60d"
 storage_version_token = "1795196023663541"
 content_type = "text/plain"
+
+[[outputs]]
+id = "rf-nu7SeGEUYR094kIEk_"
+uri = "file://generated-artifacts/mean-reversion-tiktok/Mean-Reversion-TikTok-30s.mp4"
+type = "video"
+title = "Mean Reversion — 30-second TikTok promo"
+description = "Vertical 1080×1920 video using your footage, with formal, friendly British-style male narration, synchronized captions, and no background music."
+logical_id = "7a27fc19-52c7-48fc-8c24-935679a2dc4f"
+content_hash = "sha256:d8c324c77862147986f73208fa5f6cd54e7272233de1226bb3d786b15380cea2"
+size = 1531820
+mtime_ms = 1795475405653
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:b0d92c61-69e9-4427-b00c-62f99328260c/7a27fc19-52c7-48fc-8c24-935679a2dc4f/120e89a1-ef9a-4ee2-8d6d-5182a7bb3f58"
+storage_version_token = "1795475430921593"
+content_type = "video/mp4"
+
+[[outputs]]
+id = "bVLUNeJkgnAyFkGAoHycK"
+uri = "file://generated-artifacts/mean-reversion-tiktok/Mean-Reversion-30s-Landscape.mp4"
+type = "video"
+title = "Mean Reversion — original widescreen version"
+description = "The same 30-second voice-over with your footage kept full-screen in its original 1920×1080 format, without added graphics or music."
+logical_id = "35a1c80b-2462-4e0d-b782-da61261b2535"
+content_hash = "sha256:6b65a4f6784478a607ac6ea116584d5dcfe994471b27ab65605594fe61e81cb2"
+size = 1579055
+mtime_ms = 1795475266369
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:b0d92c61-69e9-4427-b00c-62f99328260c/35a1c80b-2462-4e0d-b782-da61261b2535/03796fe9-c081-4319-a856-5b575747bb7c"
+storage_version_token = "1795475433244863"
+content_type = "video/mp4"
