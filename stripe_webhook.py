@@ -1,7 +1,7 @@
 """Raw-body Stripe receiver and durable, retryable event processor.
 
-No provider requests run in the receiver. A 200 means the signed event is
-committed to PostgreSQL, not merely placed in process memory.
+No provider requests run in the receiver. A 200 means the signed event was
+ignored as unrelated or committed to PostgreSQL, never merely kept in memory.
 """
 import asyncio
 import json
@@ -15,6 +15,7 @@ import tornado.web
 from psycopg2.extras import RealDictCursor
 
 import db
+from stripe_event_scope import EVENTS, belongs_to_app, potential_app_event
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS billing_webhook_events (
@@ -43,21 +44,20 @@ CREATE TABLE IF NOT EXISTS billing_webhook_subscriptions (
     checkout_verified BOOLEAN NOT NULL DEFAULT false
 );
 """
-EVENTS = {
-    "checkout.session.completed", "customer.subscription.updated",
-    "customer.subscription.deleted", "invoice.payment_failed",
-}
-
-
 def persist_event(event):
+    if not potential_app_event(event):
+        return False
     conn = db.get_conn()
     try:
         with conn, conn.cursor() as cur:
             cur.execute("SET LOCAL statement_timeout = '2000ms'")
+            if not belongs_to_app(cur, event):
+                return False
             cur.execute(
                 "INSERT INTO billing_webhook_events(id,payload) VALUES (%s,%s::jsonb) "
                 "ON CONFLICT(id) DO NOTHING", (event["id"], json.dumps(event)),
             )
+        return True
     finally:
         conn.close()
 
@@ -82,18 +82,19 @@ class StripeWebhook(tornado.web.RequestHandler):
             self.set_status(400)
             self.finish({"error": "Invalid Stripe signature or payload"})
             return
-        if event["type"] not in EVENTS:
-            self.finish({"received": True})
+        payload = event.to_dict()
+        if not potential_app_event(payload):
+            self.finish({"received": True, "ignored": True})
             return
         try:
-            await asyncio.wait_for(asyncio.to_thread(persist_event, event.to_dict()), 3)
+            saved = await asyncio.wait_for(asyncio.to_thread(persist_event, payload), 3)
         except Exception as exc:
             # Stripe retries non-2xx deliveries. Never acknowledge lost events.
-            logging.error("Stripe webhook persistence unavailable (%s)", type(exc).__name__)
+            logging.error("Stripe webhook ownership/persistence unavailable (%s)", type(exc).__name__)
             self.set_status(503)
             self.finish({"error": "Please retry delivery"})
             return
-        self.finish({"received": True})
+        self.finish({"received": True, "ignored": saved is False})
 
 
 def object_id(value):
@@ -121,6 +122,10 @@ def sync_subscription(cur, obj, created, deleted=False):
 
 
 def process_event(cur, event, client):
+    # Recheck queued deliveries, including unrelated events saved by older code.
+    # No provider requests or entitlement writes occur for an unknown object.
+    if not belongs_to_app(cur, event):
+        return
     obj = event["data"]["object"]
     kind, created = event["type"], event["created"]
     # Test-mode deliveries must never grant/revoke real app entitlements.
@@ -130,6 +135,8 @@ def process_event(cur, event, client):
         session = plain(client.v1.checkout.sessions.retrieve(
             obj["id"], {"expand": ["line_items", "subscription", "payment_intent.latest_charge"]}
         ))
+        if not belongs_to_app(cur, {**event, "data": {"object": session}}):
+            return
         meta = session.get("metadata") or {}
         identity = meta.get("user_identity")
         if meta.get("app") != "soxlpro":
@@ -180,6 +187,8 @@ def process_event(cur, event, client):
         deleted = kind.endswith(".deleted")
         # Read canonical state, so delayed deliveries don't restore obsolete access.
         subscription = obj if deleted else plain(client.v1.subscriptions.retrieve(obj["id"]))
+        if not belongs_to_app(cur, {**event, "data": {"object": subscription}}):
+            return
         sync_subscription(cur, subscription, created, deleted)
     elif kind == "invoice.payment_failed":
         customer = object_id(obj.get("customer"))

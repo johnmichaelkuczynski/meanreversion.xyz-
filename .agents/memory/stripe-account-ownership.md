@@ -79,3 +79,15 @@ Stripe examples treating resources as mappings.
 
 **How to apply:** Use the SDK's `to_dict()` at provider boundaries; test signature
 verification with actual SDK event objects rather than only mocked dictionaries.
+
+Ignore signed events for other apps, unknown local billing objects, and unused
+event types instead of queuing them or creating foreign customer/subscription rows.
+
+**Why:** The Stripe account is shared, and unrelated deliveries were producing
+retry errors in this app. The user explicitly required HTTP 200 for these events.
+
+**How to apply:** Establish ownership from saved checkout attempts or verified
+local account/subscription links. A first legitimate checkout can introduce a new
+Stripe customer, so its already reserved, server-bound purchase is ownership
+evidence. A failed database lookup is not proof of an unknown object: retain
+retry behavior rather than silently losing a real payment during an outage.

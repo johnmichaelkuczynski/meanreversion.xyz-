@@ -31,7 +31,12 @@ class ReceiverTests(AsyncHTTPTestCase):
 
     @patch.dict(os.environ, {"STRIPE_WEBHOOK_SECRET": "whsec_unit_test"})
     def test_raw_signature_duplicates_invalid_and_expired(self):
-        body = b'{ "id":"evt_test", "type":"checkout.session.completed", "data":{} }'
+        body = json.dumps({
+            "id": "evt_test", "type": "checkout.session.completed", "livemode": True,
+            "data": {"object": {"id": "cs_test", "metadata": {
+                "app": "soxlpro", "user_identity": "a" * 64,
+            }}},
+        }, indent=2).encode()
         with patch.object(wh, "persist_event") as save:
             self.assertEqual(self.send(body, self.signature(body)).code, 200)
             self.assertEqual(self.send(body, self.signature(body)).code, 200)
@@ -42,7 +47,10 @@ class ReceiverTests(AsyncHTTPTestCase):
 
     @patch.dict(os.environ, {"STRIPE_WEBHOOK_SECRET": "whsec_unit_test"})
     def test_persistence_failure_is_retryable(self):
-        body = b'{"id":"evt_test","type":"invoice.payment_failed","data":{}}'
+        body = json.dumps({
+            "id": "evt_test", "type": "invoice.payment_failed", "livemode": True,
+            "data": {"object": {"customer": "cus_app", "subscription": "sub_app"}},
+        }).encode()
         with patch.object(wh, "persist_event", side_effect=RuntimeError):
             self.assertEqual(self.send(body, self.signature(body)).code, 503)
 
@@ -77,6 +85,9 @@ class DatabaseTests(unittest.TestCase):
         self.conn = wh.db.get_conn()
         self.env = patch.dict(os.environ, {"STRIPE_PRICE_ID": "price_unit_test"})
         self.env.start()
+        from purchase_store import reserve_checkout
+        attempt = reserve_checkout(self.identity, "price_unit_test", 150000, "usd")
+        self.session["metadata"]["attempt_id"] = attempt["attempt_id"]
 
     def tearDown(self):
         self.conn.rollback()
@@ -84,6 +95,7 @@ class DatabaseTests(unittest.TestCase):
             cur.execute("DELETE FROM billing_webhook_accounts WHERE customer_id=%s", (self.customer,))
             cur.execute("DELETE FROM billing_webhook_subscriptions WHERE customer_id=%s", (self.customer,))
             cur.execute("DELETE FROM billing_webhook_events WHERE id=%s", (self.tag,))
+            cur.execute("DELETE FROM purchase_checkouts WHERE user_identity_hash=%s", (self.identity,))
         self.conn.close()
         self.env.stop()
 
@@ -101,7 +113,7 @@ class DatabaseTests(unittest.TestCase):
         self.subscription["status"] = "past_due"
         self.apply("customer.subscription.updated", self.subscription, 110)
         self.assertFalse(wh.subscription_access(self.identity))
-        self.apply("invoice.payment_failed", {"customer": self.customer}, 111)
+        self.apply("invoice.payment_failed", {"customer": self.customer, "subscription": self.sub}, 111)
         with self.conn, self.conn.cursor() as cur:
             cur.execute("SELECT payment_failed FROM billing_webhook_accounts WHERE customer_id=%s",
                         (self.customer,))
@@ -117,8 +129,10 @@ class DatabaseTests(unittest.TestCase):
     def test_out_of_order_and_duplicate_delivery(self):
         self.apply("customer.subscription.deleted", self.subscription, 130)
         self.apply("checkout.session.completed")
-        self.assertFalse(wh.subscription_access(self.identity))
-        event = self.event("invoice.payment_failed", {"customer": self.customer})
+        # Unknown subscription events are ignored; Checkout reads canonical state.
+        self.assertTrue(wh.subscription_access(self.identity))
+        event = self.event("invoice.payment_failed",
+                           {"customer": self.customer, "subscription": self.sub})
         wh.persist_event(event)
         wh.persist_event(event)
         with self.conn, self.conn.cursor() as cur:

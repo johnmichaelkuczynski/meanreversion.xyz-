@@ -52,7 +52,7 @@ def payment():
 
 def event(session):
     return {"id": "evt_" + uuid.uuid4().hex, "type": "checkout.session.completed",
-            "created": 100, "livemode": True, "data": {"object": {"id": session["id"]}}}
+            "created": 100, "livemode": True, "data": {"object": deepcopy(session)}}
 
 
 def provider(session):
@@ -86,7 +86,7 @@ def test_invalid_checkout_never_records_verified_payment(invalid):
         "id": 1, "price_id": PRICE, "expected_amount": 150000,
         "expected_currency": "usd", "status": "open",
     }
-    if invalid == "test":
+    if invalid in {"test", "missing-receipt"}:
         webhook.process_event(cur, delivery, provider(session))
     else:
         with pytest.raises(ValueError):
