@@ -880,3 +880,31 @@ mtime_ms = 1795475266369
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:b0d92c61-69e9-4427-b00c-62f99328260c/35a1c80b-2462-4e0d-b782-da61261b2535/03796fe9-c081-4319-a856-5b575747bb7c"
 storage_version_token = "1795475433244863"
 content_type = "video/mp4"
+
+[[outputs]]
+id = "mOG1YR2oaQMc0xIdRpYA0"
+uri = "file://generated-artifacts/mean-reversion-tiktok/Mean-Reversion-TikTok-30s-WITH-URL.mp4"
+type = "video"
+title = "Revised TikTok promo — prominent website URL"
+description = "30 seconds, 1080×1920. https://meanreversion.xyz/ stays prominently on screen throughout; original narration and captions retained, no music."
+logical_id = "c4cdcc4f-5077-4f63-b635-39638946001c"
+content_hash = "sha256:c54c6729cd4bb5f7b8bc57922e491600a302e07722044cc2e1d6e83a5713601f"
+size = 1535784
+mtime_ms = 1795486410387
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:b0d92c61-69e9-4427-b00c-62f99328260c/c4cdcc4f-5077-4f63-b635-39638946001c/98388ceb-e4aa-4fa3-882e-e9557ae3a624"
+storage_version_token = "1795486466906661"
+content_type = "video/mp4"
+
+[[outputs]]
+id = "Oa_o8u6KcPP3Ke0pejp2t"
+uri = "file://generated-artifacts/mean-reversion-tiktok/Mean-Reversion-30s-Landscape-WITH-URL.mp4"
+type = "video"
+title = "Revised widescreen promo — prominent website URL"
+description = "30 seconds, 1920×1080. Full website URL displayed in a large banner throughout; narration unchanged."
+logical_id = "45592ad1-36ae-4669-83d3-4e6e45731698"
+content_hash = "sha256:72618402a314512739096dc12cf7d437274bbb13a220e27e68c4c25e7182a99c"
+size = 1564583
+mtime_ms = 1795486421511
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:b0d92c61-69e9-4427-b00c-62f99328260c/45592ad1-36ae-4669-83d3-4e6e45731698/54bfbfdd-130b-46bb-948d-0c2119ec27fc"
+storage_version_token = "1795486467513464"
+content_type = "video/mp4"

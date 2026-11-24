@@ -79,3 +79,15 @@ speech service successfully generated the requested narration.
 instructions, then verify the generated text with transcription and check the
 audio and final video durations. Marketing narration should describe the research
 features without inventing returns or implying guaranteed stock performance.
+
+## Mean Reversion promotional links
+
+Mean Reversion promotional videos must display the website URL prominently;
+the accompanying TikTok description must include the URL too.
+
+**Why:** The user corrected an otherwise approved promo because the website
+was missing from both the video and the description.
+
+**How to apply:** Keep the URL readable in the video, including phone-sized
+playback, and include the full link in the caption. Use the user's supplied
+destination rather than guessing a domain.
