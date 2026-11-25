@@ -908,3 +908,17 @@ mtime_ms = 1795486421511
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:b0d92c61-69e9-4427-b00c-62f99328260c/45592ad1-36ae-4669-83d3-4e6e45731698/54bfbfdd-130b-46bb-948d-0c2119ec27fc"
 storage_version_token = "1795486467513464"
 content_type = "video/mp4"
+
+[[outputs]]
+id = "HBoKiSXB93k2H787uDzi8"
+uri = "file://generated-artifacts/mean-reversion-tiktok-second/Mean-Reversion-Second-Promo-30s.mp4"
+type = "video"
+title = "Mean Reversion — Second 30-Second Promo"
+description = "A fresh 1080×1920 TikTok version with new narration, a different opening and footage order, clear captions, and meanreversion.xyz prominently displayed. Relaxed British-style male narration; no music."
+logical_id = "06308b48-2157-4bc7-8665-9956eead359d"
+content_hash = "sha256:37ee43d4c7beac88982ca740a77f94843ee92bf13b4d90fec46e0e219d5755c8"
+size = 1300165
+mtime_ms = 1795642587486
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:b0d92c61-69e9-4427-b00c-62f99328260c/06308b48-2157-4bc7-8665-9956eead359d/b1b3b15b-04d6-4ae1-bf52-f097c29b53b0"
+storage_version_token = "1795642621288151"
+content_type = "video/mp4"

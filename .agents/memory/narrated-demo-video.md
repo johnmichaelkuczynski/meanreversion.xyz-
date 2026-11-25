@@ -91,3 +91,16 @@ was missing from both the video and the description.
 **How to apply:** Keep the URL readable in the video, including phone-sized
 playback, and include the full link in the caption. Use the user's supplied
 destination rather than guessing a domain.
+
+## Mean Reversion promo continuity
+
+Keep Mean Reversion promotions focused on the page-one stock research, not the
+separate SOXL page. For a sequel, retain the core explanation but write a fresh
+script and change the footage sequence, opening and captions.
+
+**Why:** The user approved the first 30-second narrated promo using their
+supplied screen recording and requested a similar, but not identical, second one.
+
+**How to apply:** Explain long-term trends, distance from the trend line and
+historical pull without promising future returns. A new edit is not a guarantee
+against copyright or platform duplicate-content claims.
