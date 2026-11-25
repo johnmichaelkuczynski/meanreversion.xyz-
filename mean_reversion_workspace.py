@@ -92,6 +92,21 @@ def _replacement_error(input_key, reason):
     return f"Could not load {requested or 'the entered ticker'}. {retained} {reason}"
 
 
+def _extend_projection_twenty_years():
+    """Choose a calendar horizon without changing the historical fit."""
+    primary = st.session_state.get(_PRIMARY)
+    if not primary:
+        return
+    last = date.fromisoformat(primary["dates"][-1])
+    year = min(last.year + 20, date.max.year)
+    try:
+        end = last.replace(year=year)
+    except ValueError:
+        # A February 29 close can project into a non-leap century.
+        end = last.replace(year=year, day=28)
+    st.session_state[_DATE_INPUT] = end
+
+
 def _replace_primary(input_key=_PRIMARY_INPUT):
     try:
         requested = normalize_stock_symbol(st.session_state.get(input_key, ""))
@@ -487,12 +502,20 @@ def render_mean_reversion_workspace():
             primary, _cached_company_name(primary["symbol"]), reading[0], reading[1],
             channel=model,
         )
-        st.date_input(
+        projection_date, projection_shortcut = st.columns([4, 1], vertical_alignment="bottom")
+        projection_date.date_input(
             "Projection and readout date",
             min_value=date.fromisoformat(primary["dates"][-1]),
             max_value=date.max,
             key=_DATE_INPUT,
             help="Extend all three fixed, straight trend lines to your chosen date, including 100 years ahead.",
+        )
+        projection_shortcut.button(
+            "Extend 20 years",
+            key="mr_extend_twenty_years",
+            on_click=_extend_projection_twenty_years,
+            help="Extend the upper, mean and lower lines to 20 years after the latest trading date.",
+            use_container_width=True,
         )
 
     comparisons = st.session_state.get(_COMPARISONS, [])

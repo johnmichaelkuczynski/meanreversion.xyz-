@@ -344,6 +344,47 @@ def test_projection_extends_one_hundred_years_with_three_straight_log_lines():
     assert all(row["target_price"] > 0 for row in chart_args(app)["rows"])
 
 
+def test_twenty_year_shortcut_extends_all_lines_without_changing_history_or_scores():
+    from datetime import date
+    app = AppTest.from_string(SCRIPT, default_timeout=15).run()
+    before = chart(app)
+    scores = [metric.value for metric in app.metric if "hands score" in metric.label]
+    app.button("mr_extend_twenty_years").click().run()
+    assert not app.exception
+    assert app.date_input("mr_workspace_projection_date").value == date(2046, 11, 18)
+    after = chart(app)
+    assert after["data"][0] == before["data"][0]
+    assert [metric.value for metric in app.metric if "hands score" in metric.label] == scores
+    assert len(after["data"][1:]) == 3
+    historical_count = len(before["data"][0]["x"])
+    for previous, extended in zip(before["data"][1:], after["data"][1:]):
+        assert extended["x"][-1] == "2046-11-18"
+        assert extended["y"][:historical_count] == previous["y"][:historical_count]
+    assert chart_args(app)["selected_date"] == "2046-11-18"
+    assert len(chart_args(app)["rows"]) == 3
+    # This is a preset measured from the last close, not twenty more years per click.
+    app.button("mr_extend_twenty_years").click().run()
+    assert app.date_input("mr_workspace_projection_date").value == date(2046, 11, 18)
+    # Custom dates and shorter horizons remain available after using the shortcut.
+    app.date_input("mr_workspace_projection_date").set_value(date(2036, 11, 18)).run()
+    assert all(trace["x"][-1] == "2036-11-18" for trace in chart(app)["data"][1:])
+
+
+def test_twenty_year_shortcut_handles_february_29_and_missing_chart(monkeypatch):
+    from datetime import date
+    import mean_reversion_workspace as workspace
+    state = {}
+    monkeypatch.setattr(workspace.st, "session_state", state)
+    workspace._extend_projection_twenty_years()
+    assert workspace._DATE_INPUT not in state
+    state[workspace._PRIMARY] = {"dates": ["2080-02-29"]}
+    workspace._extend_projection_twenty_years()
+    assert state[workspace._DATE_INPUT] == date(2100, 2, 28)
+    state[workspace._PRIMARY] = {"dates": ["2024-02-29"]}
+    workspace._extend_projection_twenty_years()
+    assert state[workspace._DATE_INPUT] == date(2044, 2, 29)
+
+
 def test_mismatched_price_feed_cannot_silently_show_a_different_stock():
     script = SCRIPT.replace(
         'return {"symbol": symbol, "dates":',
