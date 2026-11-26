@@ -922,3 +922,17 @@ mtime_ms = 1795642587486
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:b0d92c61-69e9-4427-b00c-62f99328260c/06308b48-2157-4bc7-8665-9956eead359d/b1b3b15b-04d6-4ae1-bf52-f097c29b53b0"
 storage_version_token = "1795642621288151"
 content_type = "video/mp4"
+
+[[outputs]]
+id = "JjNt4lVzgkAS56-4qjddq"
+uri = "file://generated-artifacts/mean-reversion-hover/live-app-hover.png"
+type = "image"
+title = "Verified: all three probabilities appear on hover"
+description = "Captured from the running development app using a real mouse hover, without clicking. The popup beside the trend line shows the same date, all three prices, and their existing hit-by-date probabilities."
+logical_id = "33b1062e-e7cd-47d8-9535-d71570787110"
+content_hash = "sha256:20429787c94e6765673795acd9f38a45e395201d648c2e14d791f0c54ed7df30"
+size = 132178
+mtime_ms = 1795660309755
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:b0d92c61-69e9-4427-b00c-62f99328260c/33b1062e-e7cd-47d8-9535-d71570787110/58b48518-f1f4-42a3-966b-09cfe988bf10"
+storage_version_token = "1795660448680990"
+content_type = "image/png"
