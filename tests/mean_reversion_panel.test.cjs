@@ -103,12 +103,30 @@ test("right-edge growth shifts left instead of getting stuck at the viewport edg
   assert.deepEqual(helpers.panelDimensions(190,120,false),{width:190,height:120});
 });
 
+test("hover cards flip away from the edges and respect the visible scrolled region", () => {
+  for (const [x,y,bounds] of [
+    [1080,620,{x:0,y:0,width:1100,height:640}],
+    [15,260,{x:0,y:250,width:1100,height:390}],
+    [350,490,{x:0,y:100,width:360,height:400}]
+  ]) {
+    const width = Math.min(340, bounds.width-16), height = 230;
+    const placed = helpers.hoverPosition(x,y,width,height,bounds);
+    assert.ok(placed.x >= bounds.x+8 && placed.x+width <= bounds.x+bounds.width-8);
+    assert.ok(placed.y >= bounds.y+8 && placed.y+height <= bounds.y+bounds.height-8);
+  }
+});
+
 test("hover persists, pin freezes the date, click and return use one shared readout", async () => {
   const h = harness();
   h.render(args);
   await new Promise(setImmediate);
   const point = {customdata:["2028-11-19","$400","30%","$150","60%","$40","12%"]};
   h.nodes.chart.events.plotly_hover({points:[point]});
+  assert.equal(h.nodes["hover-readout"].hidden, false, "hover must show an on-chart card without a click");
+  assert.equal(h.nodes["hover-heading"].textContent, "SOXL · 2028-11-19");
+  assert.equal(h.nodes["hover-band-rows"].children.length, 3);
+  assert.deepEqual(h.nodes["hover-band-rows"].children.map(row => row.children[1].textContent),
+    ["Price: $400", "Price: $150", "Price: $40"]);
   assert.equal(h.nodes["panel-date"].textContent, "Hovered date: 2028-11-19");
   assert.equal(h.nodes["band-rows"].children.length, 3);
   h.nodes["pin-button"].events.click();
@@ -116,10 +134,31 @@ test("hover persists, pin freezes the date, click and return use one shared read
     "2029-11-19","$500","40%","$200","70%","$50","20%"
   ]}]});
   assert.equal(h.nodes["panel-date"].textContent, "Hovered date: 2028-11-19");
+  assert.equal(h.nodes["hover-heading"].textContent, "SOXL · 2029-11-19",
+    "pinning the optional lower panel must not freeze the live hover card");
+  assert.deepEqual(h.nodes["hover-band-rows"].children.map(row => row.children[2].textContent),
+    ["Probability: 40%", "Probability: 70%", "Probability: 20%"]);
   // Hovering the actual-price trace must not overwrite the band prices.
   h.nodes.chart.events.plotly_hover({points:[{customdata:100}]});
+  assert.equal(h.nodes["hover-readout"].hidden, true);
   assert.equal(h.nodes["band-rows"].children[0].children[1].textContent, "Price: $400");
   h.nodes["return-button"].events.click();
   assert.equal(h.nodes["panel-date"].textContent, "Selected date: 2027-11-19");
   assert.equal(h.nodes["band-rows"].children[0].children[1].textContent, "Price: $300.00");
+  h.nodes.chart.events.plotly_hover({points:[point]});
+  h.nodes.chart.events.plotly_unhover();
+  assert.equal(h.nodes["hover-readout"].hidden, true);
+  h.nodes.chart.events.plotly_hover({points:[point]});
+  h.nodes.chart.events.pointerleave();
+  assert.equal(h.nodes["hover-readout"].hidden, true);
+  h.nodes.chart.events.plotly_hover({points:[point]});
+  h.render({...args,symbol:"AAPL"});
+  assert.equal(h.nodes["hover-readout"].hidden, true, "old stock hover values cannot survive a rerender");
+  h.nodes.chart.events.plotly_hover({points:[{customdata:[
+    "2029-11-19","$250","11%","$200","35%","$150","65%"
+  ]}]});
+  assert.equal(h.nodes["hover-heading"].textContent,"AAPL · 2029-11-19");
+  assert.equal(h.nodes["hover-band-rows"].children[0].children[1].textContent,"Price: $250");
+  assert.ok(!h.messages.some(message => message.type === "streamlit:setComponentValue"),
+    "hovering must never rerun the server or fetch new prices");
 });

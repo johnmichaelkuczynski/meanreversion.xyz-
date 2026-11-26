@@ -10,6 +10,12 @@
   <main id="workspace" class="workspace" aria-label="Stock price chart and trend readout">
     <div id="plot-stage" class="plot-stage">
       <div id="chart" class="chart" aria-label="Interactive stock price chart"></div>
+      <aside id="hover-readout" class="hover-readout" role="status"
+             aria-label="Trend prices and probabilities at the hovered date" hidden>
+        <strong id="hover-heading" class="hover-heading"></strong>
+        <div id="hover-band-rows" class="band-rows"></div>
+        <p class="hover-qualification">Probability of hitting each price by or before this date. Historical-model estimates.</p>
+      </aside>
       <aside id="readout" class="readout is-docked" aria-label="Common-date trend readout">
         <div id="drag-handle" class="drag-handle">
           <div class="panel-heading">

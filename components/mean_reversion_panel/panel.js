@@ -87,6 +87,21 @@
     return { x: position.x, y: position.y, width: w, height: h };
   }
 
+  function hoverPosition(x, y, width, height, bounds) {
+    var left = (Number(bounds.x) || 0) + 8;
+    var top = (Number(bounds.y) || 0) + 8;
+    var right = (Number(bounds.x) || 0) + bounds.width - 8;
+    var bottom = (Number(bounds.y) || 0) + bounds.height - 8;
+    var nextX = x + 16;
+    var nextY = y + 16;
+    if (nextX + width > right) nextX = x - width - 16;
+    if (nextY + height > bottom) nextY = y - height - 16;
+    return {
+      x: Math.max(left, Math.min(Math.max(left, right - width), nextX)),
+      y: Math.max(top, Math.min(Math.max(top, bottom - height), nextY))
+    };
+  }
+
   if (typeof module !== "undefined" && module.exports) {
     module.exports = {
       formatProbability: formatProbability,
@@ -94,7 +109,8 @@
       bandRowsFromPoint: bandRowsFromPoint,
       panelDimensions: panelDimensions,
       clampPanelPosition: clampPanelPosition,
-      clampPanelGeometry: clampPanelGeometry
+      clampPanelGeometry: clampPanelGeometry,
+      hoverPosition: hoverPosition
     };
   }
   if (typeof window === "undefined" || typeof document === "undefined") return;
@@ -105,6 +121,9 @@
   var panel = document.getElementById("readout");
   var mobilePanel = document.getElementById("mobile-readout");
   var currentRows = document.getElementById("band-rows");
+  var hoverReadout = document.getElementById("hover-readout");
+  var hoverHeading = document.getElementById("hover-heading");
+  var hoverRows = document.getElementById("hover-band-rows");
   var symbolNode = document.getElementById("panel-symbol");
   var dateNode = document.getElementById("panel-date");
   var runtimeError = document.getElementById("runtime-error");
@@ -133,6 +152,8 @@
   var resizeObserver = null;
   var savedNormalSize = null;
   var storage = null;
+  var hoverIdentity = "";
+  var pointer = null;
 
   function post(type, extra) {
     var message = Object.assign({ isStreamlitMessage: true, type: type }, extra || {});
@@ -243,8 +264,8 @@
     return node;
   }
 
-  function renderRows(rows, day) {
-    currentRows.replaceChildren();
+  function fillRows(container, rows, day) {
+    container.replaceChildren();
     normalizedRows(rows, day).forEach(function (row) {
       var section = makeElement("section", "band-row");
       section.dataset.kind = row.kind;
@@ -257,9 +278,79 @@
       var probability = makeElement("span", "band-probability", "Probability: " + probabilityText);
       probability.title = "Probability of hitting this price by or before the displayed date";
       section.append(label, price, probability);
-      currentRows.appendChild(section);
+      container.appendChild(section);
     });
+  }
+
+  function renderRows(rows, day) {
+    fillRows(currentRows, rows, day);
     setFrameHeight();
+  }
+
+  function hideHoverReadout() {
+    hoverReadout.hidden = true;
+    hoverIdentity = "";
+  }
+
+  function visibleStageBounds() {
+    var rect = stage.getBoundingClientRect();
+    var width = rect.width || stage.clientWidth;
+    var height = rect.height || chartHeight;
+    var left = Math.max(0, -rect.left);
+    var top = Math.max(0, -rect.top);
+    var right = Math.min(width, (window.innerWidth || width) - rect.left);
+    var bottom = Math.min(height, (window.innerHeight || height) - rect.top);
+    // A Streamlit iframe can be taller than the currently visible part of the
+    // parent page. Keep the hover card in that visible part, not below the fold.
+    try {
+      var frame = window.frameElement;
+      if (frame) {
+        var frameRect = frame.getBoundingClientRect();
+        var scaleX = frameRect.width / window.innerWidth || 1;
+        var scaleY = frameRect.height / window.innerHeight || 1;
+        left = Math.max(left, -frameRect.left / scaleX - rect.left);
+        top = Math.max(top, -frameRect.top / scaleY - rect.top);
+        right = Math.min(right, (window.parent.innerWidth - frameRect.left) / scaleX - rect.left);
+        bottom = Math.min(bottom, (window.parent.innerHeight - frameRect.top) / scaleY - rect.top);
+      }
+    } catch (error) { /* Cross-origin hosts still use the component viewport. */ }
+    return { x: left, y: top, width: Math.max(1, right-left), height: Math.max(1, bottom-top) };
+  }
+
+  function rememberPointer(event) {
+    if (event && Number.isFinite(event.clientX) && Number.isFinite(event.clientY)) {
+      pointer = { x: event.clientX, y: event.clientY };
+    }
+  }
+
+  function positionHoverReadout() {
+    if (hoverReadout.hidden) return;
+    var rect = stage.getBoundingClientRect();
+    var bounds = visibleStageBounds();
+    hoverReadout.style.width = Math.min(370, Math.max(180, bounds.width-16)) + "px";
+    var location = pointer || { x: rect.left + bounds.width/2, y: rect.top + bounds.height/2 };
+    var position = hoverPosition(location.x-rect.left, location.y-rect.top,
+      hoverReadout.offsetWidth, hoverReadout.offsetHeight, bounds);
+    hoverReadout.style.left = position.x + "px";
+    hoverReadout.style.top = position.y + "px";
+  }
+
+  function showHoverReadout(point, event) {
+    var rows = bandRowsFromPoint(point, lastDate);
+    if (!rows || !latestArgs) {
+      hideHoverReadout();
+      return;
+    }
+    rememberPointer(event);
+    var day = String(point.customdata[0] || "");
+    var identity = String(latestArgs.symbol || "") + "\u0000" + day;
+    if (identity !== hoverIdentity) {
+      hoverHeading.textContent = String(latestArgs.symbol || "Stock") + " · " + day;
+      fillRows(hoverRows, rows, day);
+      hoverIdentity = identity;
+    }
+    hoverReadout.hidden = false;
+    positionHoverReadout();
   }
 
   function setDateText(day, source) {
@@ -361,13 +452,25 @@
       if (!event || !event.points || !event.points.length) return;
       var point = event.points[0];
       if (point && point.customdata && Array.isArray(point.customdata) && point.customdata.length >= 7) {
+        // The cursor readout is independent of the optional pinned/docked panel.
+        showHoverReadout(point, event.event);
         showPoint(point, false);
+      } else {
+        hideHoverReadout();
       }
     });
+    chart.on("plotly_unhover", hideHoverReadout);
+    chart.addEventListener("pointermove", function (event) {
+      rememberPointer(event);
+      positionHoverReadout();
+    });
+    chart.addEventListener("pointerdown", rememberPointer);
+    chart.addEventListener("pointerleave", hideHoverReadout);
     chart.on("plotly_click", function (event) {
       if (!event || !event.points || !event.points.length) return;
       var point = event.points[0];
       if (point && point.customdata && Array.isArray(point.customdata) && point.customdata.length >= 7) {
+        showHoverReadout(point, event.event);
         showPoint(point, true);
       }
     });
@@ -400,6 +503,7 @@
 
   function receiveRender(args) {
     args = args || {};
+    hideHoverReadout();
     var nextSymbol = String(args.symbol || "");
     var nextDate = String(args.selected_date || "");
     var nextIdentity = nextSymbol + "\u0000" + nextDate;
@@ -609,6 +713,7 @@
   });
 
   window.addEventListener("resize", function () {
+    hideHoverReadout();
     positionPanel();
     setFrameHeight();
     saveLayout();

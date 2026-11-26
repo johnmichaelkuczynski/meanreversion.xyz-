@@ -52,3 +52,14 @@ walk-forward comparison of area and channel projections against a plain baseline
 and from the frozen daily-signal holdout. Report negative results and sampling
 limitations; do not silently replace live popup probabilities with a model
 selected after inspecting the historical results.
+
+The Mean Reversion page must also show all three trend prices and their
+same-date probabilities immediately on hover, beside the inspected line.
+Neither clicking nor scrolling to a below-chart readout may be required.
+
+**Why:** The user explicitly rejected the click-and-bottom-panel experience and
+requested the same immediate comparison functionality as the SOXL page.
+
+**How to apply:** Keep the cursor comparison independent of any optional pinned
+panel and visible inside the scrolled component host. Preserve the existing
+by-or-before hit-probability calculation and its historical-model qualification.

@@ -34,6 +34,38 @@ body { overflow-x: hidden; }
 
 .chart { width: 100%; min-height: 520px; }
 
+.hover-readout {
+  position: absolute;
+  z-index: 40;
+  width: 370px;
+  max-width: calc(100% - 16px);
+  padding: 10px;
+  border: 1px solid rgba(255,255,255,.35);
+  border-radius: 9px;
+  background: var(--navy);
+  color: #fff;
+  box-shadow: 0 8px 24px rgba(12,21,33,.3);
+  pointer-events: none;
+}
+.hover-readout[hidden] { display: none !important; }
+.hover-heading { display: block; padding: 0 2px 7px; font-size: 15px; }
+.hover-readout .band-rows { padding: 0; gap: 5px; }
+.hover-readout .band-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 8px;
+  align-items: baseline;
+  padding: 6px 8px;
+}
+.hover-readout .band-label { font-size: 12px; }
+.hover-readout .band-price { margin: 0; font-size: 19px; }
+.hover-readout .band-probability {
+  grid-column: 1 / -1;
+  margin-top: 2px;
+  font-size: 14px;
+}
+.hover-qualification { margin: 8px 2px 0; font-size: 11px; line-height: 1.35; color: #d4dbe4; }
+
 .readout {
   position: relative;
   z-index: 20;

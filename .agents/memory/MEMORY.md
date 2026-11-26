@@ -5,7 +5,7 @@
 - [Plotly heatmap hover safety](plotly-heatmap-hover-safety.md) — mixed customdata can trigger SVG NaN errors on hover; prefer preformatted hovertext.
 - [Plotly drawn-shape events](plotly-drawn-shape-events.md) — bind drawing events through Plotly after initialization; log-axis shape coordinates are already data values.
 - [Price-axis readability](price-axis-readability.md) — adaptive labels must stay legible; fit only visible series and keep price fitting directly above the graph.
-- [Projection hit probabilities](projection-hit-probabilities.md) — show historically calibrated by-or-before hit odds directly beside projected date and price.
+- [Projection hit probabilities](projection-hit-probabilities.md) — both chart pages show all three prices and by-or-before hit odds together on hover; no clicking or scrolling required.
 - [Panel gesture priority](panel-gesture-priority.md) — slider adjustment takes priority over the panel's drag-anywhere interaction.
 - [Embedded rail regressions](embedded-rail-regressions.md) — use real Streamlit scrolling and browser layout zoom; standalone geometry misses host-container behavior.
 - [Chart interaction default](chart-interaction-default.md) — start in pan/navigation mode; drawing must be explicitly enabled.

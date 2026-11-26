@@ -4,6 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const {test, before, after} = require("node:test");
 const {chromium} = require("playwright");
+const {execFileSync} = require("node:child_process");
 const root = path.resolve("components/mean_reversion_panel");
 let browser;
 const args = {
@@ -14,7 +15,9 @@ const args = {
   figure:{data:[],layout:{height:640}}, readout_height:640
 };
 before(async () => { browser = await chromium.launch({
-  executablePath:process.env.CHROMIUM_PATH, headless:true,args:["--no-sandbox"]
+  executablePath:process.env.CHROMIUM_PATH ||
+    (fs.existsSync("/repl/tools/bin/chromium") ? "/repl/tools/bin/chromium" : undefined),
+  headless:true,args:["--no-sandbox"]
 }); });
 after(async () => { if (browser) await browser.close(); });
 
@@ -106,3 +109,68 @@ for (const width of [360, 600, 1100]) {
     } finally { await context.close(); }
   });
 }
+
+test("real Plotly pointer hover shows all three bands inside a scrolled host without clicking", async () => {
+  const context = await browser.newContext({viewport:{width:1100,height:850}});
+  const page = await context.newPage();
+  const errors = [];
+  page.on("pageerror", error => errors.push(error.message));
+  const plotly = fs.readFileSync(execFileSync("python", ["-c",
+    "import plotly; from pathlib import Path; print(Path(plotly.__file__).parent/'package_data'/'plotly.min.js')"
+  ], {encoding:"utf8"}).trim());
+  await page.route("https://component.test/**", async route => {
+    const filename = path.basename(new URL(route.request().url()).pathname);
+    if (filename === "host.html") return route.fulfill({contentType:"text/html",
+      body:'<body style="margin:0"><div style="height:500px"></div><iframe id="host" title="Chart" src="/index.html" style="border:0;width:100%;height:1100px"></iframe><div style="height:500px"></div></body>'});
+    if (filename === "plotly.js") return route.fulfill({contentType:"application/javascript",body:plotly});
+    return route.fulfill({contentType:filename.endsWith(".css")?"text/css":filename.endsWith(".js")?
+      "application/javascript":"text/html",body:fs.readFileSync(path.join(root,filename))});
+  });
+  try {
+    await page.goto("https://component.test/host.html");
+    const frame = page.frame({url:"https://component.test/index.html"});
+    await frame.waitForFunction(() => Boolean(window.Plotly));
+    const dates = ["2026-11-19","2035-11-19","2046-11-19"];
+    const custom = dates.map(day => [day,"$300.00","21.5%","$100.00","56.0%","$20.00","9.0%"]);
+    const traces = ["Upper trend","Mean trend","Lower trend"].map((name,i) => ({
+      name,x:dates,y:[[250,300,400],[80,100,150],[15,20,40]][i],
+      mode:"lines",hoverinfo:"none",customdata:custom,
+      line:{color:["#e53935","#475569","#43a047"][i]}
+    }));
+    await frame.evaluate(value => window.postMessage({type:"streamlit:render",args:value},"*"),
+      {...args,figure:{data:traces,layout:{height:640,hovermode:"closest",
+        margin:{l:60,r:20,t:25,b:40},xaxis:{type:"date"},yaxis:{type:"log"}}}});
+    await frame.waitForFunction(() => Boolean(document.querySelector("#chart").__meanReversionEventsReady));
+    await page.evaluate(() => window.scrollTo(0,430));
+    async function hoverBand(index) {
+      const point = await frame.evaluate(i => {
+        const chart = document.querySelector("#chart"), layout = chart._fullLayout;
+        const box = chart.getBoundingClientRect(), trace = chart.data[i];
+        return {x:box.left+layout.xaxis._offset+layout.xaxis.d2p(trace.x[1]),
+          y:box.top+layout.yaxis._offset+layout.yaxis.l2p(Math.log10(trace.y[1]))};
+      },index);
+      const box = await page.locator("#host").boundingBox();
+      await page.mouse.move(box.x+point.x,box.y+point.y);
+      await frame.locator("#hover-readout").waitFor({state:"visible"});
+      assert.equal(await frame.locator("#hover-heading").innerText(),"SOXL · 2035-11-19");
+      assert.equal(await frame.locator("#hover-band-rows .band-row").count(),3);
+      assert.deepEqual(await frame.locator("#hover-band-rows .band-price").allTextContents(),
+        ["Price: $300.00","Price: $100.00","Price: $20.00"]);
+      assert.deepEqual(await frame.locator("#hover-band-rows .band-probability").allTextContents(),
+        ["Probability: 21.5%","Probability: 56.0%","Probability: 9.0%"]);
+      const card = await frame.locator("#hover-readout").boundingBox();
+      assert.ok(card.x>=0 && card.y>=0 && card.x+card.width<=1100 && card.y+card.height<=850,
+        "the complete hover card must remain in the parent viewport");
+      assert.equal(await frame.locator("#hover-readout").evaluate(el=>getComputedStyle(el).pointerEvents),"none");
+    }
+    for (const band of [0,1,2]) await hoverBand(band);
+    // Move the iframe's top above the visible parent window, as on a scrolled app page.
+    await page.evaluate(() => window.scrollTo(0,750));
+    await hoverBand(2);
+    fs.mkdirSync("generated-artifacts/mean-reversion-hover",{recursive:true});
+    await page.screenshot({path:"generated-artifacts/mean-reversion-hover/hover-comparison.png"});
+    await page.mouse.move(1090,840);
+    await frame.locator("#hover-readout").waitFor({state:"hidden"});
+    assert.deepEqual(errors,[]);
+  } finally { await context.close(); }
+});
