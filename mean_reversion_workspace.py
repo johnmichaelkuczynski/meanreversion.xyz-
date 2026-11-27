@@ -18,6 +18,11 @@ from mean_reversion_winner import (
     normalize_scores,
 )
 from stock_chart_api import load_stock_history, load_stock_name, normalize_stock_symbol
+from stock_ticker_lookup import (
+    render_ticker_lookup,
+    RESULTS_KEY as _LOOKUP_RESULTS,
+    SEARCHED_KEY as _LOOKUP_SEARCHED,
+)
 from ticker_access import can_analyze_ticker, render_ticker_unlock
 
 _PRIMARY = "mr_workspace_primary"
@@ -395,6 +400,14 @@ def _render_winner_analysis(primary, reading):
     render_score_details(analysis, scores, _SCORE_STYLE, primary)
 
 
+def _select_lookup_ticker(symbol):
+    """Use the normal replacement path, including its existing access checks."""
+    st.session_state[_TOP_PRIMARY_INPUT] = symbol
+    st.session_state.pop(_LOOKUP_RESULTS, None)
+    st.session_state.pop(_LOOKUP_SEARCHED, None)
+    _replace_primary(_TOP_PRIMARY_INPUT)
+
+
 def render_mean_reversion_workspace():
     """Render the independent Mean Reversion stock-analysis workspace."""
     retry = st.query_params.get("requested_ticker")
@@ -427,6 +440,7 @@ def render_mean_reversion_workspace():
         """,
         unsafe_allow_html=True,
     )
+    render_ticker_lookup(_select_lookup_ticker)
     with st.container(border=True, key="mr_replace_primary_top_form"):
         a, b = st.columns([5, 1])
         a.text_input("Enter stock ticker", key=_TOP_PRIMARY_INPUT,

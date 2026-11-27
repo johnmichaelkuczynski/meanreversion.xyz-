@@ -90,7 +90,7 @@ def test_soxl_and_three_lines_load_without_input():
 def test_replacement_comparisons_and_removal_are_separate():
     app = AppTest.from_string(SCRIPT, default_timeout=15).run()
     previous_prices = chart(app)["data"][0]["y"]
-    app.text_input[0].input("AAPL")
+    app.text_input(key="mr_workspace_top_primary_input").input("AAPL")
     next(b for b in app.button if b.label == "Replace primary").click().run()
     assert not app.exception
     data = chart(app)["data"]
@@ -121,9 +121,27 @@ def test_replacement_comparisons_and_removal_are_separate():
     assert not app.exception
 
 
+def test_company_lookup_keeps_chart_until_result_selected(monkeypatch):
+    monkeypatch.setattr("stock_ticker_lookup.search_stock_tickers", lambda query: [
+        {"symbol": "DIS", "name": "Walt Disney Co (The)"},
+    ])
+    app = AppTest.from_string(SCRIPT, default_timeout=15).run()
+    app.text_input(key="mr_ticker_lookup_query").input("Disney")
+    next(button for button in app.button if button.label == "Look up").click().run()
+    assert not app.exception
+    assert "TICKER: SOXL" in top_facts(app)
+    assert chart(app)["data"][0]["name"] == "SOXL · actual"
+    next(button for button in app.button if button.label.startswith("DIS —")).click().run()
+    assert not app.exception
+    assert "TICKER: DIS" in top_facts(app)
+    assert chart(app)["data"][0]["name"] == "DIS · actual"
+    assert app.text_input(key="mr_workspace_top_primary_input").value == "DIS"
+    assert not any(button.label.startswith("DIS —") for button in app.button)
+
+
 def test_bad_replacement_keeps_last_good_chart():
     app = AppTest.from_string(SCRIPT, default_timeout=15).run()
-    app.text_input[0].input("BAD")
+    app.text_input(key="mr_workspace_top_primary_input").input("BAD")
     next(b for b in app.button if b.label == "Replace primary").click().run()
     assert not app.exception
     assert app.error
@@ -243,7 +261,7 @@ def test_top_readout_has_identity_individual_facts_scores_and_selected_date():
     assert not app.exception
     assert "TICKER: AAPL" in top_facts(app)
     assert "Company: Apple Inc." in top_facts(app)
-    assert app.text_input[0].label == "Enter stock ticker"
+    assert app.text_input(key="mr_workspace_top_primary_input").label == "Enter stock ticker"
     facts = top_facts(app)
     assert "Pull: Strong" in facts
     assert "Steel hands: " in facts and "Paper hands: " in facts
